@@ -1,18 +1,13 @@
-# Alle hier gesetzten Werte können über `$addon->getProperty($key)` abgefragt werden
-
-package: yrewrite_domain_settings # Pflichtfeld
-version: '1.2.0' # Pflichtfeld
+package: yrewrite_domain_settings
+version: '1.2.1'
 author: Friends Of REDAXO
 supportpage: https://github.com/FriendsOfREDAXO/yrewrite_domain_settings
-
     
-# Abhängigkeiten
-# Anforderungen ans System oder anderere AddOns, um dieses AddOn installieren oder update zu können
 requires:
-    redaxo: '^5.5' # benötigt mindestens REDAXO 5.5
+    redaxo: '^5.5'
     packages:
-        yrewrite: '^2.5' # benötigt mindestens das Addon YREWRITE 2.5
-        yform: '^3.0' # benötigt mindestens das Addon YFORM 3.0
+        yrewrite: '^2.5'
+        yform: '^3.0'
     php:
-        version: '>=5.6' # benötigt mindestens PHP 5.6
+        version: '>=5.6'
 
