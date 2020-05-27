@@ -9,7 +9,7 @@ REDAXO5-Addon zum Verwalten zusätzlicher Informationen je YRewrite-Domain.
 
 ## Installation
 
-1. Über Installer laden oder Zip-Datei im AddOn-Ordner entpacken, der Ordner muss „quick_navigation“ heißen.
+1. Über Installer laden oder Zip-Datei im AddOn-Ordner entpacken, der Ordner muss „yrewrite_domain_settings“ heißen.
 2. AddOn installieren und aktivieren.
 3. Rechte für Rollen anpassen
 
