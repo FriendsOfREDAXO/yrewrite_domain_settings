@@ -42,10 +42,6 @@ REX_DOMAIN_SETTING[key]
 
 Du hast einen Fehler gefunden oder ein nettes Feature parat? [Lege bitte ein Issue an](https://github.com/FriendsOfREDAXO/yrewrite_domain_settings/)
 
-## Changelog
-
-siehe [CHANGELOG.md](https://github.com/FriendsOfREDAXO/quick_navigation/blob/master/CHANGELOG.md)
-
 ## Lizenz
 
 siehe [LICENSE.md](https://github.com/FriendsOfREDAXO/quick_navigation/blob/master/LICENSE.md)
