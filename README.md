@@ -20,12 +20,22 @@ Das Addon installiert die YFORM-Tabelle "yrewrite_domain_settings". In dieser Ta
 ## Beispiel-Code Frontend
 Aufruf im Frontend: 
 
+Per PHP
+
 ```php
 yrewrite_domain_settings::getValue($key)
 ```
-
-* $key = Spaltenname in der Tabelle
 * Wird kein $key übergeben, gibt die Methode getValue() alle Werte zurück.
+* $key  = Spaltenname in der Tabelle
+
+Per REX_VAR
+
+```html
+REX_DOMAIN_SETTING[key]
+```
+* key  = Spaltenname in der Tabelle
+
+
 
 
 ## Bugtracker
