@@ -12,10 +12,10 @@ class rex_var_domain_setting extends rex_var
 {
     protected function getOutput()
     {
-        $var = $this->getParsedArg('var', null, true);
-        if (null === $var) {
+        $key = $this->getParsedArg('key', null, true);
+        if (null === $key) {
             return false;
         }
-        return "yrewrite_domain_settings::getValue($var)";
+        return "yrewrite_domain_settings::getValue($key)";
     }
 }
