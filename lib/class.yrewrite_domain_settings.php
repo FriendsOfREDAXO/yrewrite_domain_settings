@@ -20,7 +20,7 @@
         }
 
         $oQuery = rex_yform_manager_table::get(rex::getTablePrefix().'yrewrite_domain_settings')->query();
-        $oQuery->where('domains_id', $iDomainsId, '=');
+        $oQuery->where('domain_id', $iDomainsId, '=');
         $oItem = $oQuery->findOne();
         if (!count($oItem)) {
             return;
