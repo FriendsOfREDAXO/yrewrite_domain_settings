@@ -4,7 +4,7 @@
 
     public function __construct()
     {
-        $this->addon = rex_addon::get('yrewrite_domain_settings');
+        $this->addon = rex_addon::get(rex::getTablePrefix().'yrewrite_domain_settings');
         $this->domain = rex_yrewrite::getCurrentDomain();
     }
 
@@ -19,7 +19,7 @@
             return;
         }
 
-        $oQuery = rex_yform_manager_table::get('yrewrite_domain_settings')->query();
+        $oQuery = rex_yform_manager_table::get(rex::getTablePrefix().'yrewrite_domain_settings')->query();
         $oQuery->where('domains_id', $iDomainsId, '=');
         $oItem = $oQuery->findOne();
         if (!count($oItem)) {
@@ -37,3 +37,4 @@
         }
     }
 }
+
