@@ -7,7 +7,7 @@ requires:
     redaxo: '^5.5'
     packages:
         yrewrite: '^2.5'
-        yform: '^3.0'
+        yform: '>3.0, <5'
     php:
         version: '>=5.6'
 
