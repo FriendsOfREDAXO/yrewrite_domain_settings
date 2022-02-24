@@ -1,1 +1,3 @@
 title = YRewrite Domain Settings
+yrewrite_domain_settings_domains = Domains
+yrewrite_domain_settings_all_domains = Alle Domains (kann mit yrewrite_domain_settings::getAllowedDomains() ausgelesen werden)

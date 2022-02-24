@@ -35,6 +35,18 @@ REX_DOMAIN_SETTING[key]
 ```
 * key  = Spaltenname in der Tabelle
 
+## Rechte setzen / auslesen
+
+In der Rollenverwaltung kann eine Beschränkung auf bestimmte Domains vorgenommen werden.
+
+Auslesen kann man diese in Templates oder Modulen mit:
+
+```php
+yrewrite_domain_settings::getAllowedDomains();
+```
+
+Es wird ein Array mit den erlaubten Domains zurückgegeben.
+
 
 
 

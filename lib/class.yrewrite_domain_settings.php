@@ -36,4 +36,20 @@
             return $oItem->getData();
         }
     }
+
+    public static function getAllowedDomains() {
+        $aAllDomains = rex_yrewrite_domains_select::getDomains();
+        if (rex::getUser()->getComplexPerm('yrewrite_domains')->getDomains() == "all" OR rex::getUser()->isAdmin()) {
+            return $aAllDomains;
+        }
+
+        $aAllowedDomains = rex::getUser()->getComplexPerm('yrewrite_domains')->getDomains();
+        $aDomains = array();
+        foreach($aAllDomains AS $aDomain) {
+            if (in_array($aDomain["id"],$aAllowedDomains)) {
+                array_push($aDomains,$aDomain);
+            }
+        }
+        return $aDomains;
+    }
 }
