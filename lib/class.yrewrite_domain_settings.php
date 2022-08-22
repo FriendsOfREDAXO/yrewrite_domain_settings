@@ -5,7 +5,7 @@
     public function __construct()
     {
         $this->addon = rex_addon::get(rex::getTablePrefix().'yrewrite_domain_settings');
-        $this->domain = rex_yrewrite::getCurrentDomain();
+        $this->domain = rex_yrewrite::getDomainByArticleId(rex_article::getCurrentId(), rex_clang::getCurrentId())
     }
 
     public static function getValue($sKey = null)
