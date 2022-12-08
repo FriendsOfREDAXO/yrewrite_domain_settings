@@ -16,6 +16,9 @@ class rex_var_domain_setting extends rex_var
         if (null === $key) {
             return false;
         }
-        return "yrewrite_domain_settings::getValue($key)";
+
+        $translate = $this->getParsedArg('translate', false, true);
+
+        return "yrewrite_domain_settings::getValue($key, $translate)";
     }
 }

@@ -8,7 +8,7 @@
         $this->domain = rex_yrewrite::getDomainByArticleId(rex_article::getCurrentId(), rex_clang::getCurrentId());
     }
 
-    public static function getValue($sKey = null)
+    public static function getValue($sKey = null, $sTranslate = false)
     {
 
         $oSettings = new yrewrite_domain_settings;
@@ -21,6 +21,14 @@
 
         $oQuery = rex_yform_manager_table::get(rex::getTablePrefix().'yrewrite_domain_settings')->query();
         $oQuery->where('domain_id', $iDomainsId, '=');
+
+        if ($sTranslate) {
+            $oQuery->where('domain_lang', rex_clang::getCurrentId(), '=');
+        }
+        else {
+            $oQuery->where('domain_lang', rex_clang::getStartId(), '=');
+        }
+
         $oItem = $oQuery->findOne();
         if (!$oItem) {
             return;
@@ -31,7 +39,12 @@
         }
 
         if ($sKey != "") {
-            return $oItem->getValue($sKey);
+            $keyValue = $oItem->getValue($sKey);
+            // Fallback
+            if ($keyValue === '' && $sTranslate) {
+                $keyValue = self::getValue($sKey);
+            }
+            return $keyValue;
         } else {
             return $oItem->getData();
         }
