@@ -1,55 +1,57 @@
-<?php class yrewrite_domain_settings
+<?php
+
+class YRewriteDomainSettings
 {
+    private static $instance = null;
+    private $addon;
+    private $domain;
 
-
-    public function __construct()
+    private function __construct()
     {
-        $this->addon = rex_addon::get(rex::getTablePrefix().'yrewrite_domain_settings');
+        $this->addon = rex_addon::get('yrewrite_domain_settings');
         $this->domain = rex_yrewrite::getDomainByArticleId(rex_article::getCurrentId(), rex_clang::getCurrentId());
     }
 
-    public static function getValue($sKey = null)
+    public static function getInstance(): YRewriteDomainSettings
     {
-
-        $oSettings = new yrewrite_domain_settings;
-
-        $iDomainsId = $oSettings->domain->getId();
-
-        if (!$iDomainsId) {
-            return;
+        if (self::$instance === null) {
+            self::$instance = new YRewriteDomainSettings();
         }
-
-        $oQuery = rex_yform_manager_table::get(rex::getTablePrefix().'yrewrite_domain_settings')->query();
-        $oQuery->where('domain_id', $iDomainsId, '=');
-        $oItem = $oQuery->findOne();
-        if (!$oItem) {
-            return;
-        }
-
-        if (!$oItem->getValue('id')) {
-            return;
-        }
-
-        if ($sKey != "") {
-            return $oItem->getValue($sKey);
-        } else {
-            return $oItem->getData();
-        }
+        return self::$instance;
     }
 
-    public static function getAllowedDomains() {
-        $aAllDomains = rex_yrewrite_domains_select::getDomains();
-        if (rex::getUser()->getComplexPerm('yrewrite_domains')->getDomains() == "all" OR rex::getUser()->isAdmin()) {
-            return $aAllDomains;
+    public static function getValue(string $key = ''): ?array
+    {
+        $settings = self::getInstance();
+
+        $domainId = $settings->domain->getId();
+        if (!$domainId) {
+            return null;
         }
 
-        $aAllowedDomains = rex::getUser()->getComplexPerm('yrewrite_domains')->getDomains();
-        $aDomains = array();
-        foreach($aAllDomains AS $aDomain) {
-            if (in_array($aDomain["id"],$aAllowedDomains)) {
-                array_push($aDomains,$aDomain);
-            }
+        $query = rex_yform_manager_table::get('yrewrite_domain_settings')->query();
+        $query->where('domain_id', $domainId);
+        $item = $query->findOne();
+
+        if (!$item || !$item->getValue('id')) {
+            return null;
         }
-        return $aDomains;
+
+        return $key !== '' ? $item->getValue($key) : $item->getData();
+    }
+
+    public static function getAllowedDomains(): array
+    {
+        $allDomains = rex_yrewrite_domains_select::getDomains();
+        $user = rex::getUser();
+
+        if ($user->isAdmin() || $user->getComplexPerm('yrewrite_domains')->getDomains() === 'all') {
+            return $allDomains;
+        }
+
+        $allowedDomains = $user->getComplexPerm('yrewrite_domains')->getDomains();
+        return array_filter($allDomains, function($domain) use ($allowedDomains) {
+            return in_array($domain['id'], $allowedDomains, true);
+        });
     }
 }
