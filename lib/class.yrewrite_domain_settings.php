@@ -20,7 +20,7 @@ class yrewrite_domain_settings
         return self::$instance;
     }
 
-    public static function getValue(string $key = ''): ?array
+    public static function getValue(string $key = '')
     {
         $settings = self::getInstance();
 
