@@ -15,7 +15,7 @@ class yrewrite_domain_settings
     public static function getInstance(): YRewriteDomainSettings
     {
         if (self::$instance === null) {
-            self::$instance = new YRewriteDomainSettings();
+            self::$instance = new yrewrite_domain_settings();
         }
         return self::$instance;
     }
