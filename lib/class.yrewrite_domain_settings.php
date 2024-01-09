@@ -29,7 +29,7 @@ class yrewrite_domain_settings
             return null;
         }
 
-        $query = rex_yform_manager_table::get('yrewrite_domain_settings')->query();
+        $query = rex_yform_manager_table::get(rex::getTablePrefix().'yrewrite_domain_settings')->query();
         $query->where('domain_id', $domainId);
         $item = $query->findOne();
 
