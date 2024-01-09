@@ -1,6 +1,6 @@
 <?php
 
-class YRewriteDomainSettings
+class yrewrite_domain_settings
 {
     private static $instance = null;
     private $addon;
