@@ -51,7 +51,7 @@ class yrewrite_domain_settings
 
         $allowedDomains = $user->getComplexPerm('yrewrite_domains')->getDomains();
         return array_filter($allDomains, function($domain) use ($allowedDomains) {
-            return in_array($domain['id'], $allowedDomains, true);
+            return in_array($domain['id'], $allowedDomains, false);
         });
     }
 }
