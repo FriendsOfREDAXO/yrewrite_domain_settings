@@ -1,5 +1,5 @@
 package: yrewrite_domain_settings
-version: '2.2.0'
+version: '2.3.0'
 author: Friends Of REDAXO
 supportpage: https://github.com/FriendsOfREDAXO/yrewrite_domain_settings
     
@@ -7,7 +7,7 @@ requires:
     redaxo: '^5.5'
     packages:
         yrewrite: '^2.5'
-        yform: '>3.0, <5'
+        yform: '>3.0, <6'
     php:
         version: '>=5.6'
 
