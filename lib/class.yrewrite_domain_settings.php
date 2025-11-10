@@ -9,7 +9,7 @@ class yrewrite_domain_settings
     private function __construct()
     {
         $this->addon = rex_addon::get('yrewrite_domain_settings');
-        $this->domain = rex_yrewrite::getDomainByArticleId(rex_article::getCurrentId(), rex_clang::getCurrentId());
+        $this->domain = rex_yrewrite::getCurrentDomain();
     }
 
     public static function getInstance(): yrewrite_domain_settings
