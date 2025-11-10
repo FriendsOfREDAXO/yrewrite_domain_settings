@@ -4,12 +4,10 @@ class yrewrite_domain_settings
 {
     private static $instance = null;
     private $addon;
-    private $domain;
 
     private function __construct()
     {
         $this->addon = rex_addon::get('yrewrite_domain_settings');
-        $this->domain = rex_yrewrite::getCurrentDomain();
     }
 
     public static function getInstance(): yrewrite_domain_settings
@@ -24,7 +22,12 @@ class yrewrite_domain_settings
     {
         $settings = self::getInstance();
 
-        $domainId = $settings->domain->getId();
+        $domain = rex_yrewrite::getCurrentDomain();
+        if (!$domain) {
+            return null;
+        }
+
+        $domainId = $domain->getId();
         if (!$domainId) {
             return null;
         }
