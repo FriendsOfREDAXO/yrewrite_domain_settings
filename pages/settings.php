@@ -90,13 +90,16 @@ foreach (Backend::getAllSections() as $table => $label) {
         . ' value="' . rex_escape($label) . '" required>'
         . '<small class="text-muted">' . rex_escape($table) . '</small></td>'
         . '<td>' . rex_i18n::msg('domain_settings_field_count', $count) . '</td>'
-        . '<td class="rex-table-action"><a class="btn btn-default" href="' . rex_escape(Backend::getFieldsUrl($table)) . '">'
+        . '<td class="rex-table-action"><a class="btn btn-default" href="' . Backend::getFieldsUrl($table) . '">'
         . '<i class="rex-icon fa-list"></i> ' . rex_i18n::msg('domain_settings_edit_fields') . '</a></td>'
         . '<td class="rex-table-action">'
         . (Backend::isSectionDeletable($table)
             ? '<button class="btn btn-delete" type="submit" name="delete_section"'
                 . ' value="' . rex_escape($table) . '"'
-                . ' data-confirm="' . rex_escape(rex_i18n::msg('domain_settings_section_delete_confirm', $label)) . '">'
+                // rawMsg, not msg: getMsg() already escapes the interpolated
+                // arguments with html_simplified, so escaping the finished
+                // message on top turns "Angebote & Preise" into "&amp;amp;".
+                . ' data-confirm="' . rex_escape(rex_i18n::rawMsg('domain_settings_section_delete_confirm', $label)) . '">'
                 . '<i class="rex-icon rex-icon-delete"></i> ' . rex_i18n::msg('domain_settings_section_delete') . '</button>'
             : '')
         . '</td>'
@@ -147,9 +150,7 @@ if (count($domains) > 1 || count($clangs) > 1) {
         $select->setName($name);
         $select->setId('domain-settings-' . $name);
         $select->setAttribute('class', 'form-control');
-        foreach ($options as $value => $text) {
-            $select->addOption($text, $value);
-        }
+        $select->addArrayOptions($options);
 
         return '<div class="form-group"><label for="domain-settings-' . $name . '">' . $label . '</label>'
             . $select->get() . '</div>';
@@ -162,8 +163,17 @@ if (count($domains) > 1 || count($clangs) > 1) {
 
     $sectionOptions = ['' => rex_i18n::msg('domain_settings_copy_all_sections')] + $sections;
 
+    // With a single domain the picker is not rendered, so its value has to
+    // travel as a hidden field - otherwise nothing is posted, the id falls
+    // back to 0, and the permission check rejects every copy.
+    $singleDomain = count($domains) < 2
+        ? '<input type="hidden" name="copy_from_domain" value="' . (int) array_key_first($domains) . '">'
+            . '<input type="hidden" name="copy_to_domain" value="' . (int) array_key_first($domains) . '">'
+        : '';
+
     $body = '<form action="' . rex_url::currentBackendPage() . '" method="post">'
         . $hidden
+        . $singleDomain
         . '<input type="hidden" name="func" value="copy">'
         . $csrf->getHiddenField()
         . '<p>' . rex_i18n::msg('domain_settings_copy_notice') . '</p>'
@@ -183,10 +193,6 @@ if (count($domains) > 1 || count($clangs) > 1) {
         . rex_i18n::msg('domain_settings_copy_submit') . '</button>'
         . '</form>';
 
-    if (count($domains) < 2) {
-        $body = str_replace('name="copy_from_domain"', 'name="copy_from_domain" value="' . (int) array_key_first($domains) . '"', $body);
-    }
-
     $fragment = new rex_fragment();
     $fragment->setVar('title', rex_i18n::msg('domain_settings_copy_title'), false);
     $fragment->setVar('body', $body, false);
@@ -201,9 +207,10 @@ $field->setLabel(rex_i18n::msg('domain_settings_fallback_clang'));
 $field->setNotice(rex_i18n::msg('domain_settings_fallback_clang_notice'));
 
 $select = $field->getSelect();
-foreach (rex_clang::getAll() as $clang) {
-    $select->addOption($clang->getName(), $clang->getId());
-}
+$select->addArrayOptions(array_map(
+    static fn (rex_clang $clang) => $clang->getName(),
+    rex_clang::getAll(),
+));
 
 $fragment = new rex_fragment();
 $fragment->setVar('title', rex_i18n::msg('domain_settings_settings'), false);

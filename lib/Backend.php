@@ -19,6 +19,7 @@ use rex_yform;
 use rex_yform_manager_dataset;
 use rex_yform_manager_table;
 use rex_yform_manager_table_api;
+use rex_yform_manager_table_perm_edit;
 use rex_yrewrite;
 use rex_yrewrite_domain;
 use RuntimeException;
@@ -26,6 +27,7 @@ use RuntimeException;
 use function array_key_exists;
 use function count;
 use function in_array;
+use function is_scalar;
 use function strlen;
 
 use const ARRAY_FILTER_USE_KEY;
@@ -39,15 +41,42 @@ use const ARRAY_FILTER_USE_KEY;
 final class Backend
 {
     /**
+     * Page keys a section may not use.
+     *
+     * `main` belongs to the base table, `settings` and `help` to the statically
+     * defined subpages. A section taking one of them would collide: the page
+     * list is merged with the section pages winning, so a section called
+     * "Settings" would push out the very page it could be deleted from, and a
+     * duplicate `main` would make one section unreachable and point its API
+     * scope at the other one's table.
+     */
+    private const RESERVED_SLUGS = ['main', 'settings', 'help'];
+    /**
      * Section list for this request.
      *
-     * Built once: identifying sections costs a SHOW COLUMNS per candidate
-     * table, and the list is needed on every backend request to build the
-     * navigation.
+     * Built once per request: the list is needed on every backend request to
+     * build the navigation, and in several extension points on top of that.
      *
      * @var array<string, string>|null
      */
     private static ?array $sections = null;
+
+    /**
+     * Domain list for this request. Built from yrewrite's domains, which do
+     * not change within a request, but is asked for repeatedly - once per row
+     * of the role form among others.
+     *
+     * @var array<int, string>|null
+     */
+    private static ?array $domains = null;
+
+    /**
+     * Language ids per domain, from yrewrite. Asked for on every get() that
+     * falls back, so it is worth not walking yrewrite's list each time.
+     *
+     * @var array<int, list<int>>
+     */
+    private static array $domainClangIds = [];
 
     /**
      * Every domain known to the system, as id => label.
@@ -60,8 +89,12 @@ final class Backend
      */
     public static function getAllDomains(): array
     {
+        if (null !== self::$domains) {
+            return self::$domains;
+        }
+
         if (!rex_addon::get('yrewrite')->isAvailable()) {
-            return [0 => rex_i18n::msg('domain_settings_domain_default')];
+            return self::$domains = [0 => rex_i18n::msg('domain_settings_domain_default')];
         }
 
         $yrewriteDomains = self::getYrewriteDomains();
@@ -80,12 +113,12 @@ final class Backend
         // of them, so values maintained on domain 0 would never show up in the
         // frontend - an easy trap to fall into.
         if ([] === $domains) {
-            return [0 => rex_i18n::msg('domain_settings_domain_default')];
+            return self::$domains = [0 => rex_i18n::msg('domain_settings_domain_default')];
         }
 
         ksort($domains);
 
-        return $domains;
+        return self::$domains = $domains;
     }
 
     /**
@@ -123,35 +156,40 @@ final class Backend
      */
     public static function getDomainClangIds(int $domainId): array
     {
+        if (isset(self::$domainClangIds[$domainId])) {
+            return self::$domainClangIds[$domainId];
+        }
+
         if (0 === $domainId || !rex_addon::get('yrewrite')->isAvailable()) {
-            return [];
+            return self::$domainClangIds[$domainId] = [];
         }
 
-        foreach (self::getYrewriteDomains() as $domain) {
-            if ((int) $domain->getId() !== $domainId) {
-                continue;
-            }
+        // Warms yrewrite's list on the CLI, see getYrewriteDomains().
+        self::getYrewriteDomains();
+        $domain = rex_yrewrite::getDomainById($domainId);
 
-            $clangs = array_values(array_filter(array_map('intval', $domain->getClangs())));
-
-            return array_values(array_filter($clangs, rex_clang::exists(...)));
+        if (null === $domain) {
+            return self::$domainClangIds[$domainId] = [];
         }
 
-        return [];
+        $clangs = array_map('intval', $domain->getClangs());
+
+        return self::$domainClangIds[$domainId] = array_values(array_filter($clangs, rex_clang::exists(...)));
     }
 
     /** The start language yrewrite has configured for a domain, if any. */
     public static function getDomainStartClangId(int $domainId): ?int
     {
-        foreach (self::getYrewriteDomains() as $domain) {
-            if ((int) $domain->getId() === $domainId) {
-                $startClang = (int) $domain->getStartClang();
+        self::getYrewriteDomains();
+        $domain = rex_yrewrite::getDomainById($domainId);
 
-                return rex_clang::exists($startClang) ? $startClang : null;
-            }
+        if (null === $domain) {
+            return null;
         }
 
-        return null;
+        $startClang = (int) $domain->getStartClang();
+
+        return rex_clang::exists($startClang) ? $startClang : null;
     }
 
     /**
@@ -161,14 +199,21 @@ final class Backend
      */
     public static function getDomains(): array
     {
-        $domains = self::getAllDomains();
         $user = rex::getUser();
 
+        // No user, no permissions. Returning everything would make this filter
+        // a no-op the moment the method is reached from a context without a
+        // login - the console, the API, a frontend call.
         if (null === $user) {
-            return $domains;
+            return [];
         }
 
+        $domains = self::getAllDomains();
         $perm = $user->getComplexPerm('yrewrite_domains');
+
+        if (!$perm instanceof DomainPerm) {
+            return [];
+        }
 
         return array_filter(
             $domains,
@@ -204,8 +249,13 @@ final class Backend
                 continue;
             }
 
-            $columns = array_column(rex_sql::showColumns($name), 'name');
-            if (!in_array('domain_id', $columns, true) || !in_array('clang_id', $columns, true)) {
+            // Through YForm's own cache rather than SHOW COLUMNS: the column
+            // list sits in the same cache file the table came from, and this
+            // runs on every backend request via PAGES_PREPARED. It also keeps
+            // a stale YForm registration - a table dropped elsewhere - from
+            // throwing and taking the whole backend down with it.
+            $columns = $table->getColumns();
+            if (!isset($columns['domain_id'], $columns['clang_id'])) {
                 continue;
             }
 
@@ -224,6 +274,8 @@ final class Backend
     public static function resetSections(): void
     {
         self::$sections = null;
+        self::$domains = null;
+        self::$domainClangIds = [];
     }
 
     /**
@@ -236,14 +288,18 @@ final class Backend
      */
     public static function getSections(): array
     {
-        $sections = self::getAllSections();
         $user = rex::getUser();
 
         if (null === $user) {
-            return $sections;
+            return [];
         }
 
+        $sections = self::getAllSections();
         $perm = $user->getComplexPerm('yform_manager_table_edit');
+
+        if (!$perm instanceof rex_yform_manager_table_perm_edit) {
+            return [];
+        }
 
         return array_filter(
             $sections,
@@ -279,15 +335,16 @@ final class Backend
     /**
      * Creates a new section table and registers it with YForm.
      *
-     * Returns the table name, or null when the label yields no usable suffix
-     * or the table already exists.
+     * Returns the table name, or null when the label yields no usable suffix,
+     * hits a reserved key, or the table already exists.
      */
     public static function createSection(string $label): ?string
     {
         $label = trim($label);
-        $slug = trim(rex_string::normalize($label, '_'), '_');
+        // normalize() trims the replacement character itself.
+        $slug = rex_string::normalize($label, '_');
 
-        if ('' === $label || '' === $slug) {
+        if ('' === $label || '' === $slug || in_array($slug, self::RESERVED_SLUGS, true)) {
             return null;
         }
 
@@ -317,7 +374,7 @@ final class Backend
             'mass_edit' => 0,
             'history' => 0,
         ]);
-        rex_yform_manager_table::deleteCache();
+        // setTable() clears YForm's cache itself; resetSections() is ours.
         self::resetSections();
 
         return $table;
@@ -348,14 +405,17 @@ final class Backend
      */
     public static function deleteSection(string $table): bool
     {
-        if (!self::isSectionDeletable($table)) {
+        if ('' === $table || !self::isSectionDeletable($table)) {
             return false;
         }
 
+        // removeTable() clears YForm's cache itself.
         rex_yform_manager_table_api::removeTable($table);
-        rex_yform_manager_table::deleteCache();
 
-        rex_sql::factory()->setQuery('DROP TABLE IF EXISTS ' . rex_sql::factory()->escapeIdentifier($table));
+        // Through rex_sql_table rather than a raw DROP: it also resets the
+        // instance pool, so a later ensure() on the same name would create the
+        // table instead of trying to alter one it still believes exists.
+        rex_sql_table::get($table)->drop();
 
         self::resetSections();
         DomainSettings::deleteCache();
@@ -394,17 +454,16 @@ final class Backend
         $copied = 0;
 
         foreach (array_keys($sections) as $table) {
-            $sql = rex_sql::factory();
-            $rows = $sql->getArray(
-                'SELECT * FROM ' . $sql->escapeIdentifier($table) . ' WHERE domain_id = :domain AND clang_id = :clang',
-                ['domain' => $fromDomainId, 'clang' => $fromClangId],
-            );
+            $source = rex_yform_manager_dataset::query($table)
+                ->where('domain_id', $fromDomainId)
+                ->where('clang_id', $fromClangId)
+                ->findOne();
 
-            if (!isset($rows[0])) {
+            if (null === $source) {
                 continue;
             }
 
-            $values = $rows[0];
+            $values = $source->getData();
             unset($values['id'], $values['domain_id'], $values['clang_id']);
 
             if ([] === $values) {
@@ -512,7 +571,6 @@ final class Backend
             'table_name' => $table,
             'name' => $label,
         ]);
-        rex_yform_manager_table::deleteCache();
         self::resetSections();
 
         return true;
@@ -549,6 +607,22 @@ final class Backend
     }
 
     /**
+     * Ids of the languages the current user may edit on a domain.
+     *
+     * The id list is what callers actually compare against; having it here
+     * keeps the same array_map from being written out in three places.
+     *
+     * @return list<int>
+     */
+    public static function getEditableClangIds(?int $domainId = null): array
+    {
+        return array_map(
+            static fn (rex_clang $clang) => $clang->getId(),
+            self::getEditableClangs($domainId),
+        );
+    }
+
+    /**
      * Returns the dataset for the given key, creating the row if needed.
      *
      * The row has to exist before the form runs: domain_id and clang_id are
@@ -559,36 +633,29 @@ final class Backend
      */
     public static function getDataset(string $table, array $keys): rex_yform_manager_dataset
     {
-        $sql = rex_sql::factory();
-
-        $conditions = [];
-        $params = [];
+        $query = rex_yform_manager_dataset::query($table);
         foreach ($keys as $column => $value) {
-            $conditions[] = $sql->escapeIdentifier($column) . ' = :' . $column;
-            $params[$column] = $value;
+            $query->where($column, $value);
         }
 
-        $rows = $sql->getArray(
-            'SELECT id FROM ' . $sql->escapeIdentifier($table) . ' WHERE ' . implode(' AND ', $conditions) . ' LIMIT 1',
-            $params,
-        );
+        $dataset = $query->findOne();
 
-        if (isset($rows[0]['id'])) {
-            $id = (int) $rows[0]['id'];
-        } else {
-            $insert = rex_sql::factory();
-            $insert->setTable($table);
-            foreach ($keys as $column => $value) {
-                $insert->setValue($column, $value);
-            }
-            $insert->insert();
-            $id = (int) $insert->getLastId();
-
-            // This insert bypasses YForm, so the YFORM_DATA_ADDED hook that
-            // normally drops the cache does not fire here.
-            DomainSettings::deleteCache();
+        if (null !== $dataset) {
+            return $dataset;
         }
 
+        $insert = rex_sql::factory();
+        $insert->setTable($table);
+        foreach ($keys as $column => $value) {
+            $insert->setValue($column, $value);
+        }
+        $insert->insert();
+        $id = (int) $insert->getLastId();
+
+        // No deleteCache() here on purpose. The row is empty, and an empty
+        // value reads exactly like a missing row (isEmpty() treats '' and null
+        // alike), so the resolved result does not change - while dropping the
+        // cache would, because this runs on every visit to the editing page.
         $dataset = rex_yform_manager_dataset::get($id, $table);
 
         if (null === $dataset) {
@@ -609,8 +676,12 @@ final class Backend
      *
      * @param array<string, int|string> $queryParams
      */
-    public static function renderForm(rex_yform_manager_dataset $dataset, string $formName, array $queryParams): string
-    {
+    public static function renderForm(
+        rex_yform_manager_dataset $dataset,
+        string $formName,
+        array $queryParams,
+        bool &$saved = false,
+    ): string {
         $yform = $dataset->getForm();
         $yform->setObjectparams('form_name', $formName);
         // Anchor for the collapsible-groups asset, see assets/domain_settings.js.
@@ -635,7 +706,8 @@ final class Backend
 
         // YForm reports a completed save through this objparam - the same
         // signal its own manager uses to decide whether to show a message.
-        $message = $yform->getObjectparams('actions_executed')
+        $saved = (bool) $yform->getObjectparams('actions_executed');
+        $message = $saved
             ? rex_view::success(rex_i18n::msg('domain_settings_saved'))
             : '';
 
@@ -659,11 +731,7 @@ final class Backend
 
         // Do not describe a language the user has no permission for, not even
         // by naming which of its fields are filled.
-        $editableClangIds = array_map(
-            static fn (rex_clang $clang) => $clang->getId(),
-            self::getEditableClangs($domainId),
-        );
-        if (!in_array($fallbackClangId, $editableClangIds, true)) {
+        if (!in_array($fallbackClangId, self::getEditableClangIds($domainId), true)) {
             return [];
         }
 
@@ -672,16 +740,26 @@ final class Backend
             return [];
         }
 
-        $sql = rex_sql::factory();
-        $rows = $sql->getArray(
-            'SELECT clang_id, ' . $sql->escapeIdentifier($table) . '.* FROM ' . $sql->escapeIdentifier($table)
-            . ' WHERE domain_id = :domain AND clang_id IN (:current, :fallback)',
-            ['domain' => $domainId, 'current' => $clangId, 'fallback' => $fallbackClangId],
-        );
-
+        // Both languages in one query - the builder turns the array into IN().
         $byClang = [];
-        foreach ($rows as $row) {
-            $byClang[(int) $row['clang_id']] = $row;
+        $datasets = rex_yform_manager_dataset::query($table)
+            ->where('domain_id', $domainId)
+            ->where('clang_id', [$clangId, $fallbackClangId])
+            ->find();
+
+        foreach ($datasets as $dataset) {
+            if (!$dataset instanceof rex_yform_manager_dataset) {
+                continue;
+            }
+
+            // The driver hands columns back as int or as string depending on
+            // its configuration, so cast rather than assume either.
+            $clangValue = $dataset->getValue('clang_id');
+            if (!is_scalar($clangValue)) {
+                continue;
+            }
+
+            $byClang[(int) $clangValue] = $dataset->getData();
         }
 
         $current = $byClang[$clangId] ?? [];
@@ -717,14 +795,14 @@ final class Backend
     /**
      * Link to the field definitions of a table in the YForm table manager.
      *
-     * Not HTML-escaped: this URL goes into a Location header, where an escaped
-     * ampersand would arrive as a literal "&amp;" in the query string. Escape
-     * at the point of use when embedding it in markup.
+     * HTML-escaped, because both callers put it straight into markup. If it
+     * ever has to go into a Location header, pass false as the third argument
+     * of rex_url::backendPage() at that call site instead.
      */
     public static function getFieldsUrl(string $table): string
     {
         return rex_url::backendPage('yform/manager/table_field', [
             'table_name' => $table,
-        ], false);
+        ]);
     }
 }

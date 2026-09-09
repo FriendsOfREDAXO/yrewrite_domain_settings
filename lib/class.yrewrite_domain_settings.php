@@ -28,12 +28,7 @@ class yrewrite_domain_settings
 {
     private static ?yrewrite_domain_settings $instance = null;
 
-    private rex_addon $addon;
-
-    private function __construct()
-    {
-        $this->addon = rex_addon::get('yrewrite_domain_settings');
-    }
+    private function __construct() {}
 
     public static function getInstance(): self
     {
@@ -76,21 +71,29 @@ class yrewrite_domain_settings
      */
     public static function getAllowedDomains(): array
     {
-        $allDomains = rex_yrewrite_domains_select::getDomains();
         $user = rex::getUser();
 
         if (null === $user) {
             return [];
         }
 
-        if ($user->isAdmin() || rex_complex_perm::ALL === $user->getComplexPerm('yrewrite_domains')->getDomains()) {
+        $allDomains = rex_yrewrite_domains_select::getDomains();
+        $perm = $user->getComplexPerm('yrewrite_domains');
+
+        if (!$perm instanceof rex_yrewrite_domains_perm) {
+            return [];
+        }
+
+        $allowedDomains = $perm->getDomains();
+
+        if ($user->isAdmin() || rex_complex_perm::ALL === $allowedDomains) {
             return $allDomains;
         }
 
-        $allowedDomains = $user->getComplexPerm('yrewrite_domains')->getDomains();
+        $allowed = array_map('strval', (array) $allowedDomains);
 
-        return array_values(array_filter($allDomains, static function ($domain) use ($allowedDomains) {
-            return in_array($domain['id'], (array) $allowedDomains, false);
+        return array_values(array_filter($allDomains, static function (array $domain) use ($allowed) {
+            return in_array((string) $domain['id'], $allowed, true);
         }));
     }
 

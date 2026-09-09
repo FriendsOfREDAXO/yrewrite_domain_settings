@@ -57,6 +57,3 @@ domain_settings_copy_done = {0} Bereich(e) übertragen.
 domain_settings_copy_nothing = Es gab nichts zu übertragen.
 domain_settings_copy_invalid = Quelle oder Ziel ist nicht zulässig.
 
-# Deprecated, kept for backwards compatibility
-yrewrite_domain_settings_domains = Domains
-yrewrite_domain_settings_all_domains = Alle Domains (kann mit yrewrite_domain_settings::getAllowedDomains() ausgelesen werden)

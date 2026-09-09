@@ -26,28 +26,44 @@ rex_extension::register(
     ['YFORM_DATA_ADDED', 'YFORM_DATA_UPDATED', 'YFORM_DATA_DELETED'],
     static function (rex_extension_point $ep): void {
         $changed = $ep->getParam('table');
-        if ($changed instanceof rex_yform_manager_table
-            && array_key_exists($changed->getTableName(), Backend::getAllSections())) {
+        if (!$changed instanceof rex_yform_manager_table) {
+            return;
+        }
+
+        // Cheap prefix test first: this fires for every YForm table in the
+        // installation, and only tables named like ours can ever be sections.
+        if (!str_starts_with($changed->getTableName(), rex::getTable(DomainSettings::ADDON))) {
+            return;
+        }
+
+        if (array_key_exists($changed->getTableName(), Backend::getAllSections())) {
             DomainSettings::deleteCache();
         }
     },
 );
 
-rex_extension::register(['CACHE_DELETED', 'CLANG_ADDED'], static function (): void {
+rex_extension::register('CLANG_ADDED', static function (): void {
     DomainSettings::deleteCache();
 });
 
-// Keep the IDE helper in step with the fields. There is no extension point for
-// schema changes in YForm, but clearing the cache is what one does after
-// changing fields anyway - so this is the closest thing to automatic.
 rex_extension::register('CACHE_DELETED', static function (): void {
+    DomainSettings::deleteCache();
     Backend::resetSections();
-    Backend::writeIdeHelper();
+
+    // Keep the IDE helper in step with the fields. There is no extension point
+    // for schema changes in YForm, but clearing the cache is what one does
+    // after changing fields anyway - so this is the closest thing to
+    // automatic. Only while developing: on a production server nobody reads
+    // the file, and CACHE_DELETED also fires on setup, backup import and core
+    // update. `console domain-settings:ide-helper` writes it on demand.
+    if (rex::isDebugMode()) {
+        Backend::writeIdeHelper();
+    }
 });
 
 // A deleted language leaves rows behind that nothing can reach any more.
 rex_extension::register('CLANG_DELETED', static function (rex_extension_point $ep): void {
-    $clangId = (int) $ep->getParam('id');
+    $clangId = rex_type::int($ep->getParam('id'));
 
     foreach (array_keys(Backend::getAllSections()) as $table) {
         rex_sql::factory()->setQuery(
@@ -62,7 +78,7 @@ rex_extension::register('CLANG_DELETED', static function (rex_extension_point $e
 // Keep the media pool from silently dropping a logo that is still in use.
 rex_extension::register('MEDIA_IS_IN_USE', static function (rex_extension_point $ep) {
     $warnings = (array) $ep->getSubject();
-    $filename = (string) $ep->getParam('filename');
+    $filename = rex_type::string($ep->getParam('filename'));
 
     if (DomainSettings::isMediaInUse($filename)) {
         $warnings[] = rex_i18n::msg('domain_settings_media_in_use');

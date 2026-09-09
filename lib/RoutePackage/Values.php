@@ -9,6 +9,7 @@ use FriendsOfRedaxo\DomainSettings\Backend;
 use FriendsOfRedaxo\DomainSettings\DomainSettings;
 use rex;
 use rex_clang;
+use rex_type;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
@@ -98,6 +99,7 @@ class Values extends RoutePackage
         }
     }
 
+    /** @param array<string, mixed> $Parameter */
     public static function handleAll($Parameter): Response
     {
         [$domainId, $clangId, $error] = self::resolveContext($Parameter);
@@ -112,6 +114,7 @@ class Values extends RoutePackage
         ]);
     }
 
+    /** @param array<string, mixed> $Parameter */
     public static function handleSection($Parameter): Response
     {
         [$domainId, $clangId, $error] = self::resolveContext($Parameter);
@@ -120,8 +123,8 @@ class Values extends RoutePackage
             return $error;
         }
 
-        $table = (string) ($Parameter['section'] ?? '');
-        $values = DomainSettings::getAll($domainId, $clangId);
+        $table = rex_type::string($Parameter['section'] ?? '');
+        $values = DomainSettings::getSectionValues($table, $domainId, $clangId);
         $names = Backend::getFieldNames($table);
 
         return new JsonResponse([
@@ -138,6 +141,8 @@ class Values extends RoutePackage
      *
      * Saving goes through the dataset, so YForm's validators run and its data
      * events fire (which is what drops the value cache).
+     *
+     * @param array<string, mixed> $Parameter
      */
     public static function handleWrite($Parameter): Response
     {
@@ -147,7 +152,7 @@ class Values extends RoutePackage
             return $error;
         }
 
-        $table = (string) ($Parameter['section'] ?? '');
+        $table = rex_type::string($Parameter['section'] ?? '');
         $payload = json_decode((string) rex::getRequest()->getContent(), true);
 
         if (!is_array($payload) || [] === $payload) {
@@ -178,7 +183,7 @@ class Values extends RoutePackage
         }
 
         return new JsonResponse([
-            'data' => array_intersect_key(DomainSettings::getAll($domainId, $clangId), array_flip($allowed)),
+            'data' => array_intersect_key(DomainSettings::getSectionValues($table, $domainId, $clangId), array_flip($allowed)),
             'meta' => [
                 'domain_id' => $domainId,
                 'clang_id' => $clangId,
@@ -191,14 +196,30 @@ class Values extends RoutePackage
     /**
      * Reads domain and language from the query, falling back to the defaults.
      *
-     * @return array{0: int, 1: int, 2: Response|null}
+     * @param array<string, mixed> $Parameter
+     *
+     * @return array{int, int, JsonResponse|null}
      */
     private static function resolveContext($Parameter): array
     {
-        $query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
+        // Through the request object rather than $_REQUEST: that one also
+        // carries cookies depending on request_order, which have no business
+        // filling query parameters here.
+        $request = rex::getRequest();
+        $query = RouteCollection::getQuerySet(
+            $request->query->all() + $request->request->all(),
+            $Parameter['query'],
+        );
 
         $domainId = (int) ($query['domain_id'] ?? 0);
         $clangId = (int) ($query['clang_id'] ?? 0);
+
+        // Same check as for the language: without it a write request could
+        // create rows for domains that do not exist, and every one of them
+        // would end up in the value cache that the frontend reads.
+        if (!isset(Backend::getAllDomains()[$domainId])) {
+            return [0, 0, new JsonResponse(['error' => 'Unknown domain_id'], 400)];
+        }
 
         if (0 === $clangId) {
             // The domain's fallback, not the site's start language: a domain

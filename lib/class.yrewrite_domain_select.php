@@ -2,21 +2,19 @@
 
 class rex_yrewrite_domains_select extends rex_select
 {
-    /** @var bool */
-    private $loaded = false;
+    private bool $loaded = false;
 
-    public function __construct()
-    {
-        parent::__construct();
-    }
-
+    /** @return list<array{domain: string, id: string}> */
     public static function getDomains()
     {
         $aDomains = [];
         $sql = rex_sql::factory();
         $sql->setQuery('SELECT * FROM ' . rex::getTable('yrewrite_domain') . ' ORDER BY domain ASC');
         foreach ($sql as $oItem) {
-            $aDomains[] = ['domain' => $oItem->getValue('domain'), 'id' => $oItem->getValue('id')];
+            $aDomains[] = [
+                'domain' => (string) $oItem->getValue('domain'),
+                'id' => (string) $oItem->getValue('id'),
+            ];
         }
         return $aDomains;
     }

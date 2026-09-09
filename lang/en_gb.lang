@@ -57,6 +57,3 @@ domain_settings_copy_done = {0} section(s) copied.
 domain_settings_copy_nothing = There was nothing to copy.
 domain_settings_copy_invalid = Source or target is not permitted.
 
-# Deprecated, kept for backwards compatibility
-yrewrite_domain_settings_domains = Domains
-yrewrite_domain_settings_all_domains = All domains

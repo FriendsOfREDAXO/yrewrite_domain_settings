@@ -65,9 +65,7 @@ if (count($domains) > 1) {
     $select->setAttribute('class', 'form-control');
     $select->setAttribute('onchange', 'this.form.submit()');
     $select->setSelected($domainId);
-    foreach ($domains as $id => $label) {
-        $select->addOption($label, $id);
-    }
+    $select->addArrayOptions($domains);
 
     $body = '<form action="' . rex_url::currentBackendPage() . '" method="get">'
         . '<input type="hidden" name="page" value="' . rex_escape(rex_be_controller::getCurrentPage()) . '">'
@@ -90,7 +88,7 @@ $body = '';
 if (!Backend::hasFields($table)) {
     $body .= rex_view::info(
         rex_i18n::msg('domain_settings_no_fields')
-        . ' <a href="' . rex_escape(Backend::getFieldsUrl($table)) . '">' . rex_i18n::msg('domain_settings_edit_fields') . '</a>',
+        . ' <a href="' . Backend::getFieldsUrl($table) . '">' . rex_i18n::msg('domain_settings_edit_fields') . '</a>',
     );
 
     $fragment = new rex_fragment();
@@ -127,7 +125,27 @@ if (count($clangs) > 1) {
 // Render first, then work out what is inherited: a save happens inside
 // renderForm(), so asking earlier would describe the state before it.
 $dataset = Backend::getDataset($table, ['domain_id' => $domainId, 'clang_id' => $clangId]);
-$form = Backend::renderForm($dataset, 'domain_settings', ['page' => rex_be_controller::getCurrentPage()] + $baseParams);
+$saved = false;
+$form = Backend::renderForm(
+    $dataset,
+    'domain_settings',
+    ['page' => rex_be_controller::getCurrentPage()] + $baseParams,
+    $saved,
+);
+
+// "Save and switch" from the unsaved-changes dialog: the language to go to
+// rides along in the post, and only a completed save may follow it - otherwise
+// a validation error would silently drop what was typed.
+if ($saved) {
+    $gotoClangId = rex_post('domain_settings_goto_clang', 'int', 0);
+
+    if (0 !== $gotoClangId && $gotoClangId !== $clangId && in_array($gotoClangId, $clangIds, true)) {
+        rex_response::sendRedirect(rex_url::currentBackendPage([
+            'domain_id' => $domainId,
+            'clang_id' => $gotoClangId,
+        ], false));
+    }
+}
 
 // Tell the editor which values this language takes from elsewhere, so an
 // empty field reads as "taken from German" rather than "missing".
