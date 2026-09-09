@@ -35,7 +35,7 @@ class yrewrite_domain_settings
         $this->addon = rex_addon::get('yrewrite_domain_settings');
     }
 
-    public static function getInstance(): yrewrite_domain_settings
+    public static function getInstance(): self
     {
         return self::$instance ??= new self();
     }

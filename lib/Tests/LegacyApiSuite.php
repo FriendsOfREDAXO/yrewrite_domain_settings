@@ -33,11 +33,6 @@ final class LegacyApiSuite extends AbstractSuite
 {
     private bool $rowWasCreated = false;
 
-    public function getTitle(): string
-    {
-        return 'Legacy API (2.3.0)';
-    }
-
     public function setUp(): void
     {
         // The old getValue() has no domain argument: it reads whatever domain
@@ -48,6 +43,16 @@ final class LegacyApiSuite extends AbstractSuite
             ['selftest_text' => 'legacy'],
             DomainSettings::getCurrentDomainId(),
         );
+    }
+
+    public function tearDown(): void
+    {
+        $this->removeCreatedRow();
+    }
+
+    public function getTitle(): string
+    {
+        return 'Legacy API (2.3.0)';
     }
 
     public function testGetValueWithKeyReturnsTheValue(): void
@@ -174,11 +179,6 @@ final class LegacyApiSuite extends AbstractSuite
     public function testGetAllowedDomainsSurvivesWithoutAUser(): void
     {
         Assert::same([], yrewrite_domain_settings::getAllowedDomains());
-    }
-
-    public function tearDown(): void
-    {
-        $this->removeCreatedRow();
     }
 
     private function removeCreatedRow(): void

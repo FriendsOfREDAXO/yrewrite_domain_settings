@@ -1,4 +1,5 @@
-<?php 
+<?php
+
 /**
  * This file is part of the yrewrite_domain_settings package.
  *
