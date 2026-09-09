@@ -1,5 +1,6 @@
 <?php
 
+use FriendsOfRedaxo\DomainSettings\Backend;
 use FriendsOfRedaxo\DomainSettings\DomainSettings;
 
 /**
@@ -108,6 +109,15 @@ class yrewrite_domain_settings
         }
 
         $domainId = DomainSettings::getCurrentDomainId();
+
+        // The same rule the current API follows: a tab not assigned to this
+        // domain holds nothing for it. Only ever true where an assignment was
+        // made, which did not exist when this class was the API - so nothing
+        // that worked in 2.3.0 changes here.
+        if (!Backend::isSectionVisibleForDomain($table->getTableName(), $domainId)) {
+            return [];
+        }
+
         $clangId = rex_clang::getCurrentId();
         $fallbackClangId = DomainSettings::getFallbackClangId($domainId);
 

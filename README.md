@@ -141,6 +141,11 @@ Wer bewusst HTML ausgeben will, setzt `output="html"`. Die PHP-API
 `DomainSettings::get()` liefert dagegen den rohen Wert; dort muss der Aufrufer selbst
 `rex_escape()` einsetzen.
 
+**Zuordnung:** Ein Tab antwortet nur auf den Domains, denen er zugeordnet ist
+(Einstellungen → Vorhandene Tabs). Auf allen anderen verhält sich sein Schlüssel
+wie ein unbekannter — dort greift also der Standardwert. Die gespeicherten Werte
+bleiben erhalten und kommen mit der Domain zurück.
+
 **Fallback:** Ein leerer Wert wird aus der Fallback-Sprache derselben Domain
 übernommen. Leer heißt `''` oder `null` — aber **nicht** `'0'`, damit sich eine
 Checkbox in einer einzelnen Sprache abschalten lässt. Domains erben *nicht*
@@ -194,13 +199,14 @@ Zuordnen und Löschen samt Sprung in den YForm Table Manager, und **Fallback**
 für die Sprache, aus der leere Werte bedient werden.
 
 Jeder Tab lässt sich **einer oder mehreren Domains zuordnen** — schon beim
-Anlegen und später in der Liste. Das ist ein reiner Ansichtsfilter: Er
-bestimmt, wo ein Tab zur Bearbeitung angeboten wird, und sonst nichts.
-Bereits gepflegte Werte bleiben in der Tabelle und werden im Frontend weiter
-ausgeliefert; nimmt man einem Tab eine Domain weg, auf der Werte stehen, sagt
-das Speichern es dazu. Nichts gewählt heißt alle Domains, alle gewählt wird
-als „keine Einschränkung" gespeichert — sonst verlöre ein Tab still jede
-später angelegte Domain.
+Anlegen und später in der Liste. Die Zuordnung bestimmt, wo ein Tab **gilt**:
+Dort wird er zur Bearbeitung angeboten, und nur dort werden seine Werte im
+Frontend ausgegeben. Nimmt man einem Tab eine Domain weg, auf der Werte
+stehen, verschwinden diese Werte aus dem Frontend dieser Domain — das Speichern
+sagt es dazu. Verloren geht dabei nichts: Die Zeilen bleiben stehen, und mit
+der Domain sind auch die Werte unverändert zurück. Nichts gewählt heißt alle
+Domains, alle gewählt wird als „keine Einschränkung" gespeichert — sonst
+verlöre ein Tab still jede später angelegte Domain.
 
 Ein Tab lässt sich jederzeit umbenennen — geändert wird nur die
 Beschriftung. Die Tabelle behält ihren Namen, und das ist Absicht: An ihm
@@ -289,6 +295,13 @@ PATCH /api/domain-settings/<tab>            Werte ändern
 
 Ohne Parameter gilt die erste Domain und die Startsprache.
 
+Gelesen wird, was auch das Frontend sieht: Ein Tab, der der angefragten Domain
+nicht zugeordnet ist, liefert nichts. Die Antworten zu einem einzelnen Tab
+sagen mit `meta.assigned`, ob ein leeres `data` daran liegt oder daran, dass
+schlicht nichts gepflegt ist. Ein `PATCH` in eine noch nicht zugeordnete Domain
+ist erlaubt — so lassen sich Werte vorbereiten —, wird aber erst mit der
+Zuordnung ausgeliefert.
+
 Ein `PATCH` ändert nur die Felder, die im Body stehen — der Rest bleibt
 unangetastet. Unbekannte Feldnamen werden ignoriert und mit einer Liste der
 gültigen beantwortet. Gespeichert wird über den YForm-Datensatz, also laufen
@@ -368,13 +381,14 @@ und wieder gelöscht wird, und benutzen eine Domain-ID weit außerhalb dessen,
 was yrewrite vergibt. Redaktionelle Inhalte werden nicht angefasst — geprüft
 durch Vergleich der Tabellen vor und nach dem Lauf.
 
-Sieben Suiten mit zusammen 58 Prüfungen: `fallback` (Vererbungskette),
+Sieben Suiten mit zusammen 62 Prüfungen: `fallback` (Vererbungskette),
 `sections` (anlegen, umbenennen, löschen, reservierte Schlüssel), `cache`
 (Invalidierung), `security` (Regressionen der im Review gefundenen Lücken),
 `legacy` (die API von 2.3.0), `domain-languages` (welche Sprachen eine Domain
 führt), `section-domains` (Tab-zu-Domain-Zuordnung — dass sie speichert, was
-sie soll, die Navigation steuert, die Berechtigung nie erweitert und den
-Lesepfad nicht anfasst).
+sie soll, die Navigation steuert, die Berechtigung nie erweitert, den Lesepfad
+genau dort verstummen lässt, wo ein Tab nicht gilt, und die Werte beim
+Wiederzuordnen zurückbringt).
 
 Kann eine Prüfung auf dieser Instanz nicht laufen — weil es nur eine Sprache
 gibt, keine fremde YForm-Tabelle oder bereits echte Werte auf der aktuellen

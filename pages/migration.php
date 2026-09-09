@@ -38,8 +38,21 @@ if ('copy' === rex_post('func', 'string')) {
             && in_array($to[1], $clangIdsFor($to[0]), true)
             && ('' === $onlyTable || isset($sections[$onlyTable]));
 
+        // Copying into a domain the section does not count on would write
+        // rows nothing ever reads. Named rather than counted as "nothing
+        // copied": the reason is in the settings, not in the data.
+        $notAssigned = '' !== $onlyTable
+            && $allowed
+            && !Backend::isSectionVisibleForDomain($onlyTable, $to[0]);
+
         if (!$allowed) {
             echo rex_view::warning(rex_i18n::msg('domain_settings_copy_invalid'));
+        } elseif ($notAssigned) {
+            echo rex_view::warning(rex_i18n::rawMsg(
+                'domain_settings_copy_section_not_assigned',
+                rex_escape($sections[$onlyTable]),
+                rex_escape($domains[$to[0]]),
+            ));
         } else {
             $copied = Backend::copyValues($from[0], $from[1], $to[0], $to[1], '' === $onlyTable ? null : $onlyTable);
             echo $copied > 0

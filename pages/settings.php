@@ -81,12 +81,16 @@ if ('' !== $func) {
             $after = Backend::getSectionDomainIds($table);
             $after = [] === $after ? array_keys($allDomains) : $after;
 
-            // Taking a domain away only hides the tab - the rows stay and keep
-            // answering in the frontend. Worth saying out loud, it is the one
-            // thing about this setting that surprises.
+            // Taking a domain away stops the values from being delivered
+            // there. The rows stay, so it is reversible - but it changes the
+            // live site, which nobody should learn about later.
             foreach (array_diff($before, $after) as $domainId) {
                 if (Backend::sectionHasValues($table, (int) $domainId)) {
-                    $orphaned[] = Backend::getAllSections()[$table] . ' / ' . ($allDomains[$domainId] ?? $domainId);
+                    // Escaped here rather than by rawMsg(): both halves are
+                    // free text an admin typed - the tab label and the domain
+                    // name from yrewrite.
+                    $orphaned[] = rex_escape(Backend::getAllSections()[$table])
+                        . ' / ' . rex_escape((string) ($allDomains[$domainId] ?? $domainId));
                 }
             }
         }

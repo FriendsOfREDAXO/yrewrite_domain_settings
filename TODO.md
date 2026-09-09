@@ -53,8 +53,9 @@ domainübergreifend zu markieren — dann bleibt die Herkunft am Tab
 ablesbar. Das Kopieren von Werten deckt den Bedarf vorerst ab.
 
 Die Tab-zu-Domain-Zuordnung aus 2.5.0 ist **nicht** dieser Schritt: Sie
-entscheidet nur, wo ein Tab zur Bearbeitung angeboten wird, und rührt den
-Lesepfad nicht an. Eine zweite Vererbungsachse bliebe ein eigener Umbau.
+entscheidet, wo ein Tab gilt — Bearbeitung und Ausgabe gleichermaßen —, aber
+sie vererbt nichts zwischen Domains. Eine zweite Vererbungsachse bliebe ein
+eigener Umbau.
 
 ## Kleinere Punkte
 

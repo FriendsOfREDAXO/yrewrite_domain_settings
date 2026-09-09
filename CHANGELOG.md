@@ -14,12 +14,21 @@ Tokens laufen unverändert weiter.
 
 - **Tab-zu-Domain-Zuordnung**: Mehrfachauswahl in den Einstellungen und schon
   beim Anlegen eines Tabs, gespeichert in `rex_config` unter `section_domains`.
-  Reiner **Ansichtsfilter** — er bestimmt, wo ein Tab zur Bearbeitung
-  angeboten wird, und sonst nichts. Der Lesepfad bleibt unberührt, bereits
-  gepflegte Werte wirken im Frontend weiter; deshalb sagt das Speichern es
-  dazu, wenn einer abgewählten Domain Werte bleiben. Nichts gewählt heißt
-  alle Domains, alle gewählt wird als „keine Einschränkung" gespeichert —
-  sonst verlöre ein Tab still jede später angelegte Domain.
+  Sie entscheidet, **wo ein Tab gilt** — er wird dort zur Bearbeitung
+  angeboten und nur dort im Frontend ausgegeben (`DomainSettings::get()`,
+  `getAll()`, `getSectionValues()`, `REX_DOMAIN_VALUE`). Die Zeilen bleiben
+  unangetastet: Wird die Domain wieder zugeordnet, sind die Werte unverändert
+  zurück. Das Speichern sagt es dazu, wenn einer abgewählten Domain Werte
+  bleiben, die damit aus dem Frontend verschwinden. Nichts gewählt heißt alle
+  Domains, alle gewählt wird als „keine Einschränkung" gespeichert — sonst
+  verlöre ein Tab still jede später angelegte Domain.
+  Drei Stellen folgen der Zuordnung bewusst **nicht**: die Prüfung „Datei in
+  Verwendung?" für den Medienpool liest die Tabellen direkt, sonst ließe sich
+  ein Logo löschen, das nach dem Wiederzuordnen gebraucht wird; das Kopieren
+  auf der Seite Migration überspringt Tabs, die in der Zieldomain nicht gelten,
+  statt dort unerreichbare Zeilen anzulegen; und `PATCH` über die REST-API darf
+  weiter in eine noch nicht zugeordnete Domain schreiben — die Antwort weist
+  das mit `meta.assigned` aus.
 - Eigene Seite **Migration** für „Daten übertragen". Getrennt von den
   Einstellungen, weil sie keine ist: die Einstellungen beschreiben das
   Verhalten von jetzt an, diese Seite ändert gespeicherte Daten in einem Zug.
@@ -34,7 +43,10 @@ Tokens laufen unverändert weiter.
   `$delete_old`) jede Spalte ohne Feld außer `id` — hier also genau die beiden
   Spalten, die bestimmen, welche Zeile geschrieben wird.
 - Neue Test-Suite `section-domains` (`lib/Tests/SectionDomainsSuite.php`) mit
-  15 Prüfungen.
+  19 Prüfungen — darunter, dass ein nicht zugeordneter Tab im Frontend
+  schweigt, dass seine Werte beim Wiederzuordnen zurückkommen, dass das
+  Speichern der Zuordnung den Wert-Cache verwirft und dass eine nur dort
+  benutzte Mediendatei weiter als „in Verwendung" gilt.
 
 ### Behoben
 

@@ -129,7 +129,14 @@ class Values extends RoutePackage
 
         return new JsonResponse([
             'data' => array_intersect_key($values, array_flip($names)),
-            'meta' => ['domain_id' => $domainId, 'clang_id' => $clangId, 'section' => Backend::sectionSlug($table)],
+            'meta' => [
+                'domain_id' => $domainId,
+                'clang_id' => $clangId,
+                'section' => Backend::sectionSlug($table),
+                // Answers the one question an empty `data` raises: is nothing
+                // filled in, or does this section not count on this domain?
+                'assigned' => Backend::isSectionVisibleForDomain($table, $domainId),
+            ],
         ]);
     }
 
@@ -138,6 +145,10 @@ class Values extends RoutePackage
      *
      * Only fields declared on the route are written, and only those actually
      * present in the body - so a PATCH with one field leaves the rest alone.
+     *
+     * Writing to a domain the section is not assigned to is allowed - values
+     * can be prepared before a domain goes live - but such values are not
+     * delivered, so `data` comes back empty and `meta.assigned` says why.
      *
      * Saving goes through the dataset, so YForm's validators run and its data
      * events fire (which is what drops the value cache).
@@ -189,6 +200,7 @@ class Values extends RoutePackage
                 'clang_id' => $clangId,
                 'section' => Backend::sectionSlug($table),
                 'updated' => array_keys($values),
+                'assigned' => Backend::isSectionVisibleForDomain($table, $domainId),
             ],
         ]);
     }

@@ -27,6 +27,11 @@ use function is_scalar;
  * both "not translated yet" and "identical in every language" with the same
  * mechanism.
  *
+ * Values of a tab that is not assigned to a domain are left out: the
+ * assignment decides where a tab exists, in the backend and in the frontend
+ * alike. The rows themselves stay untouched, so assigning the domain again
+ * brings them back.
+ *
  * All domains and languages share one cache file, read lazily on first
  * access - requests that never ask for a value pay nothing. Two measured
  * points, deliberately far apart: a typical installation (3 domains, 2
@@ -193,12 +198,22 @@ final class DomainSettings
      * wrong section's value here. Callers that address one section - the REST
      * routes - have to get exactly that section.
      *
+     * Empty for a domain the section is not assigned to, so a client reading
+     * one section sees what the frontend sees.
+     *
      * @return array<string, string>
      */
     public static function getSectionValues(string $table, ?int $domainId = null, ?int $clangId = null): array
     {
         $domainId ??= self::getCurrentDomainId();
         $clangId ??= rex_clang::getCurrentId();
+
+        // Same rule as the cache: a tab not offered on this domain holds no
+        // values for it, however many rows are still sitting in its table.
+        if (!Backend::isSectionVisibleForDomain($table, $domainId)) {
+            return [];
+        }
+
         $fallbackClangId = self::getFallbackClangId($domainId);
 
         $byClang = self::rowsByClang($table, $domainId, [$clangId, $fallbackClangId]);
@@ -266,6 +281,12 @@ final class DomainSettings
      * dropping a logo that is still on the site. Only media fields are
      * inspected, not every text column, so a filename mentioned inside a
      * footer text does not raise a false alarm.
+     *
+     * Reads the tables rather than the value cache, on purpose: the cache
+     * leaves out tabs that are not assigned to a domain, and a file used only
+     * there would look free to delete - until the domain is assigned again and
+     * the value points at nothing. "In use" here means "stored anywhere", not
+     * "delivered right now".
      */
     public static function isMediaInUse(string $filename): bool
     {
@@ -273,20 +294,26 @@ final class DomainSettings
             return false;
         }
 
-        $fields = self::getMediaFieldNames();
-        if ([] === $fields) {
-            return false;
-        }
+        foreach (self::getMediaFieldsByTable() as $table => $fields) {
+            $sql = rex_sql::factory();
 
-        foreach (self::load() as $byClang) {
-            foreach ($byClang as $row) {
-                foreach ($fields as $name) {
-                    $value = $row[$name] ?? '';
-                    if ('' === $value) {
+            $columns = [];
+            foreach ($fields as $name) {
+                $columns[] = $sql->escapeIdentifier($name);
+            }
+
+            $rows = $sql->getArray(
+                'SELECT ' . implode(', ', $columns) . ' FROM ' . $sql->escapeIdentifier($table),
+            );
+
+            foreach ($rows as $row) {
+                foreach ($row as $value) {
+                    if (!is_scalar($value) || '' === (string) $value) {
                         continue;
                     }
+
                     // be_medialist stores several filenames separated by commas.
-                    if (in_array($filename, array_map('trim', explode(',', $value)), true)) {
+                    if (in_array($filename, array_map('trim', explode(',', (string) $value)), true)) {
                         return true;
                     }
                 }
@@ -303,13 +330,13 @@ final class DomainSettings
     }
 
     /**
-     * Names of all media fields.
+     * Media field names per section table, sections without one left out.
      *
-     * @return list<string>
+     * @return array<string, list<string>>
      */
-    private static function getMediaFieldNames(): array
+    private static function getMediaFieldsByTable(): array
     {
-        $names = [];
+        $fields = [];
 
         foreach (array_keys(Backend::getAllSections()) as $tableName) {
             $table = rex_yform_manager_table::get($tableName);
@@ -317,14 +344,20 @@ final class DomainSettings
                 continue;
             }
 
+            $names = [];
+
             foreach ($table->getValueFields() as $field) {
                 if (in_array($field->getTypeName(), ['be_media', 'be_medialist'], true)) {
                     $names[] = (string) $field->getName();
                 }
             }
+
+            if ([] !== $names) {
+                $fields[$tableName] = $names;
+            }
         }
 
-        return $names;
+        return $fields;
     }
 
     /** @return array<int, array<int, array<string, string>>> */
@@ -412,6 +445,10 @@ final class DomainSettings
         $duplicates = [];
 
         foreach (array_keys(Backend::getAllSections()) as $table) {
+            // The domains this section is offered on. An empty list means all
+            // of them, so it never filters anything out.
+            $assignedDomains = Backend::getSectionDomainIds($table);
+
             // From the columns, not from the first row: a section without rows
             // would otherwise contribute nothing and its duplicate field names
             // would stay unreported until someone saves there for the first
@@ -441,6 +478,17 @@ final class DomainSettings
             foreach ($sql->getArray('SELECT * FROM ' . $sql->escapeIdentifier($table)) as $row) {
                 $domainId = (int) $row['domain_id'];
                 $clangId = (int) $row['clang_id'];
+
+                // A tab that is not offered on a domain does not answer for it
+                // either: rows left behind from before the assignment stay in
+                // the table, out of the cache, and come back the moment the
+                // domain is assigned again. Without this the same field name
+                // in two tabs - which the assignment is what makes legal -
+                // would resolve to whichever table was read first.
+                if ([] !== $assignedDomains && !in_array($domainId, $assignedDomains, true)) {
+                    continue;
+                }
+
                 unset($row['id'], $row['domain_id'], $row['clang_id']);
 
                 $row = array_map(static fn ($value) => (string) $value, $row);

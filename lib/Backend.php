@@ -538,6 +538,9 @@ final class Backend
      * the user may edit are touched, and source and target are validated by
      * the caller against what the user may see.
      *
+     * Sections that are not offered on both domains are skipped - the return
+     * value counts what was actually copied, so the caller can say so.
+     *
      * @param string|null $onlyTable limit to one section, null for all of them
      *
      * @return int number of sections copied
@@ -553,7 +556,15 @@ final class Backend
             return 0;
         }
 
-        $sections = self::getSections();
+        // Both sides of the copy, not just the editable set: a section that
+        // is not assigned to the target domain would be written there and
+        // never delivered, and one not assigned to the source has nothing to
+        // give in the first place.
+        $sections = array_intersect_key(
+            self::getSections($fromDomainId),
+            self::getSections($toDomainId),
+        );
+
         if (null !== $onlyTable) {
             $sections = array_intersect_key($sections, [$onlyTable => true]);
         }
@@ -1304,6 +1315,10 @@ final class Backend
     /**
      * Limits a section to the given domains. An empty list lifts the limit.
      *
+     * Reaches into the frontend: values of a domain the section is no longer
+     * assigned to stop being delivered. The rows stay, so assigning the domain
+     * again brings them back unchanged.
+     *
      * @param array<int|string> $domainIds
      */
     public static function setSectionDomains(string $table, array $domainIds): void
@@ -1340,6 +1355,12 @@ final class Backend
         }
 
         rex_config::set(DomainSettings::ADDON, self::CONFIG_SECTION_DOMAINS, $config);
+
+        // The assignment decides what goes into the value cache, so the cache
+        // is wrong the moment it changes. Nothing else drops it here: no
+        // dataset was saved, so YFORM_DATA_UPDATED does not fire.
+        self::resetCaches();
+        DomainSettings::deleteCache();
     }
 
     /**
