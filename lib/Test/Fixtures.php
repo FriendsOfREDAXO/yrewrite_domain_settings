@@ -6,7 +6,7 @@ use FriendsOfRedaxo\DomainSettings\Backend;
 use FriendsOfRedaxo\DomainSettings\DomainSettings;
 use rex;
 use rex_clang;
-use rex_sql;
+use rex_sql_table;
 use rex_yform_manager_table;
 use rex_yform_manager_table_api;
 use RuntimeException;
@@ -32,9 +32,18 @@ final class Fixtures
 
     public function setUp(): void
     {
-        $this->tearDown();
-
         $table = rex::getTable(DomainSettings::ADDON) . '_' . self::SECTION_SUFFIX;
+
+        // Never drop a section that was not ours: a project with a section
+        // actually named "Selftest" would lose it here, before createSection()
+        // below ever complains.
+        if (null !== rex_yform_manager_table::get($table)) {
+            throw new RuntimeException(
+                'A section named "Selftest" already exists (' . $table . '). '
+                . 'The test suite refuses to touch it - rename it and run again.',
+            );
+        }
+
         $created = Backend::createSection('Selftest');
 
         if (null === $created) {
@@ -58,9 +67,14 @@ final class Fixtures
             ]);
         }
 
-        rex_yform_manager_table::deleteCache();
-        rex_yform_manager_table_api::generateTableAndFields(rex_yform_manager_table::get($created));
-        rex_yform_manager_table::deleteCache();
+        $managerTable = rex_yform_manager_table::get($created);
+        if (null === $managerTable) {
+            throw new RuntimeException('Could not load the test section ' . $created);
+        }
+
+        // setTableField() and generateTableAndFields() clear YForm's cache
+        // themselves; only our own static needs resetting.
+        rex_yform_manager_table_api::generateTableAndFields($managerTable);
         Backend::resetSections();
         DomainSettings::deleteCache();
     }
@@ -71,10 +85,10 @@ final class Fixtures
 
         if (null !== rex_yform_manager_table::get($table)) {
             rex_yform_manager_table_api::removeTable($table);
-            rex_yform_manager_table::deleteCache();
         }
 
-        rex_sql::factory()->setQuery('DROP TABLE IF EXISTS ' . rex_sql::factory()->escapeIdentifier($table));
+        // Through rex_sql_table so its instance pool learns the table is gone.
+        rex_sql_table::get($table)->drop();
 
         $this->table = null;
         Backend::resetSections();

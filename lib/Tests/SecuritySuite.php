@@ -61,13 +61,23 @@ class SecuritySuite extends AbstractSuite
     }
 
     /**
-     * Without a domain permission the page must stop, not fall through to
-     * domain 0 - which is a real domain (yrewrite's implicit "default").
+     * A user without domain permissions gets an empty list - not everything.
+     *
+     * The editing page turns an empty list into a stop; what matters here is
+     * that the list is empty in the first place. It used to return every
+     * domain when no user was set, which made the filter a no-op outside the
+     * backend.
      */
-    public function testDomainZeroIsARealDomain(): void
+    public function testDomainListDoesNotFallOpenWithoutUser(): void
     {
-        // array_key_first([]) is null and casts to 0, which is why the empty
-        // list has to be caught before it is used as a domain id.
-        Assert::same(0, (int) array_key_first([]));
+        $user = rex::getUser();
+        rex::setProperty('user', null);
+
+        try {
+            Assert::same([], Backend::getDomains(), 'no user must mean no domains');
+            Assert::same([], Backend::getSections(), 'no user must mean no sections');
+        } finally {
+            rex::setProperty('user', $user);
+        }
     }
 }

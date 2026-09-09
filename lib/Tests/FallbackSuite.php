@@ -17,7 +17,7 @@ class FallbackSuite extends AbstractSuite
         $other = $this->fixtures->otherClangId();
 
         if (null === $other) {
-            return;
+            Assert::skip('needs a second language');
         }
 
         $this->fixtures->setValues($other, ['selftest_text' => 'own']);
@@ -30,7 +30,7 @@ class FallbackSuite extends AbstractSuite
         $other = $this->fixtures->otherClangId();
 
         if (null === $other) {
-            return;
+            Assert::skip('needs a second language');
         }
 
         $this->fixtures->setValues($this->fixtures->fallbackClangId(), ['selftest_text' => 'fallback']);
@@ -48,7 +48,7 @@ class FallbackSuite extends AbstractSuite
         $other = $this->fixtures->otherClangId();
 
         if (null === $other) {
-            return;
+            Assert::skip('needs a second language');
         }
 
         $this->fixtures->setValues($this->fixtures->fallbackClangId(), ['selftest_flag' => '1']);

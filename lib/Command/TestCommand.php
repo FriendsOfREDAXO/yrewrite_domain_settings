@@ -5,6 +5,7 @@ namespace FriendsOfRedaxo\DomainSettings\Command;
 use FriendsOfRedaxo\DomainSettings\Test\AbstractSuite;
 use FriendsOfRedaxo\DomainSettings\Test\AssertionFailed;
 use FriendsOfRedaxo\DomainSettings\Test\Fixtures;
+use FriendsOfRedaxo\DomainSettings\Test\SkippedException;
 use FriendsOfRedaxo\DomainSettings\Tests\CacheSuite;
 use FriendsOfRedaxo\DomainSettings\Tests\DomainLanguagesSuite;
 use FriendsOfRedaxo\DomainSettings\Tests\FallbackSuite;
@@ -21,6 +22,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Throwable;
 
 use function count;
+use function is_string;
 use function sprintf;
 
 /**
@@ -60,7 +62,8 @@ class TestCommand extends rex_console_command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $only = $input->getArgument('suite');
+        $argument = $input->getArgument('suite');
+        $only = is_string($argument) ? $argument : null;
 
         if (null !== $only && !isset(self::SUITES[$only])) {
             $io->error('Unknown suite "' . $only . '". Available: ' . implode(', ', array_keys(self::SUITES)));
@@ -69,6 +72,7 @@ class TestCommand extends rex_console_command
 
         $fixtures = new Fixtures();
         $passed = 0;
+        $skipped = 0;
         $failures = [];
 
         try {
@@ -90,6 +94,11 @@ class TestCommand extends rex_console_command
                         $suite->{$method}();
                         $io->writeln('  <info>ok</info>   ' . $this->humanise($method));
                         ++$passed;
+                    } catch (SkippedException $e) {
+                        // Not a pass: this instance cannot answer the question.
+                        $io->writeln('  <comment>skip</comment> ' . $this->humanise($method));
+                        $io->writeln('       ' . $e->getMessage());
+                        ++$skipped;
                     } catch (AssertionFailed $e) {
                         $io->writeln('  <error>FAIL</error> ' . $this->humanise($method));
                         $io->writeln('       ' . $e->getMessage());
@@ -116,13 +125,15 @@ class TestCommand extends rex_console_command
 
         $io->newLine();
 
+        $skippedNote = 0 === $skipped ? '' : sprintf(', %d skipped', $skipped);
+
         if ([] !== $failures) {
-            $io->error(sprintf('%d passed, %d failed', $passed, count($failures)));
+            $io->error(sprintf('%d passed, %d failed%s', $passed, count($failures), $skippedNote));
             $io->listing($failures);
             return self::FAILURE;
         }
 
-        $io->success(sprintf('%d checks passed', $passed));
+        $io->success(sprintf('%d checks passed%s', $passed, $skippedNote));
 
         return self::SUCCESS;
     }

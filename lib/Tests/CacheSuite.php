@@ -83,11 +83,30 @@ class CacheSuite extends AbstractSuite
         $this->fixtures->setValues($clangId, ['selftest_text' => 'unberuehrt']);
         DomainSettings::get('selftest_text', null, Fixtures::DOMAIN_ID, $clangId);
 
+        // A table that is genuinely not ours - the previous version fell back
+        // to the fixture table, which made this test prove the opposite.
+        $foreign = null;
+        foreach (rex_yform_manager_table::getAll() as $table) {
+            if (!str_starts_with($table->getTableName(), rex::getTable(DomainSettings::ADDON))) {
+                $foreign = $table;
+                break;
+            }
+        }
+
+        if (null === $foreign) {
+            Assert::skip('no YForm table outside this addon to fire the event with');
+        }
+
+        Assert::true(file_exists($this->cacheFile()), 'precondition: cache file exists');
+
         rex_extension::registerPoint(new rex_extension_point('YFORM_DATA_UPDATED', null, [
-            'table' => rex_yform_manager_table::get(rex::getTable('api_token')) ?? rex_yform_manager_table::get($this->fixtures->table()),
+            'table' => $foreign,
         ]));
 
-        Assert::true(file_exists($this->cacheFile()) || true, 'cache handling must not throw');
+        Assert::true(
+            file_exists($this->cacheFile()),
+            'a foreign table must not drop our cache',
+        );
     }
 
     private function cacheFile(): string

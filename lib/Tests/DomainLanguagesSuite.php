@@ -6,6 +6,7 @@ use FriendsOfRedaxo\DomainSettings\Backend;
 use FriendsOfRedaxo\DomainSettings\DomainSettings;
 use FriendsOfRedaxo\DomainSettings\Test\AbstractSuite;
 use FriendsOfRedaxo\DomainSettings\Test\Assert;
+use FriendsOfRedaxo\DomainSettings\Test\Fixtures;
 use rex_clang;
 
 use function in_array;
@@ -29,7 +30,7 @@ final class DomainLanguagesSuite extends AbstractSuite
     /** No yrewrite domain behind it means no restriction, not "no languages". */
     public function testUnknownDomainIsUnrestricted(): void
     {
-        Assert::same([], Backend::getDomainClangIds(999001));
+        Assert::same([], Backend::getDomainClangIds(Fixtures::DOMAIN_ID));
     }
 
     /** Domain 0 is yrewrite's implicit default and serves everything. */
@@ -42,7 +43,7 @@ final class DomainLanguagesSuite extends AbstractSuite
     {
         Assert::same(
             array_map(static fn (rex_clang $c) => $c->getId(), Backend::getEditableClangs()),
-            array_map(static fn (rex_clang $c) => $c->getId(), Backend::getEditableClangs(999001)),
+            array_map(static fn (rex_clang $c) => $c->getId(), Backend::getEditableClangs(Fixtures::DOMAIN_ID)),
         );
     }
 

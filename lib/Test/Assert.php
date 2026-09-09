@@ -14,6 +14,17 @@ use function sprintf;
  */
 final class Assert
 {
+    /**
+     * Ends the current test as skipped rather than passed.
+     *
+     * @throws SkippedException
+     * @return never
+     */
+    public static function skip(string $reason): void
+    {
+        throw new SkippedException($reason);
+    }
+
     public static function same(mixed $expected, mixed $actual, string $message = ''): void
     {
         if ($expected !== $actual) {
@@ -26,16 +37,19 @@ final class Assert
         }
     }
 
+    /** @phpstan-assert true $condition */
     public static function true(bool $condition, string $message = ''): void
     {
         self::same(true, $condition, $message);
     }
 
+    /** @phpstan-assert false $condition */
     public static function false(bool $condition, string $message = ''): void
     {
         self::same(false, $condition, $message);
     }
 
+    /** @phpstan-assert null $value */
     public static function null(mixed $value, string $message = ''): void
     {
         self::same(null, $value, $message);

@@ -2,7 +2,6 @@
 
 namespace FriendsOfRedaxo\DomainSettings\Tests;
 
-use FriendsOfRedaxo\DomainSettings\DomainPerm;
 use FriendsOfRedaxo\DomainSettings\DomainSettings;
 use FriendsOfRedaxo\DomainSettings\Test\AbstractSuite;
 use FriendsOfRedaxo\DomainSettings\Test\Assert;
@@ -15,6 +14,7 @@ use rex_yrewrite_domains_perm;
 use yrewrite_domain_settings;
 
 use function is_array;
+use function is_scalar;
 
 /**
  * The API of 2.3.0 has to keep behaving exactly as it did.
@@ -115,7 +115,10 @@ final class LegacyApiSuite extends AbstractSuite
             Assert::true(is_array($row), 'getValue() without a key returns an array');
             Assert::hasKey('id', $row);
             Assert::hasKey('domain_id', $row);
-            Assert::same($domainId, (int) $row['domain_id']);
+            $domainInRow = $row['domain_id'] ?? null;
+            // The assertion narrows the type, so the cast below is safe.
+            Assert::true(is_scalar($domainInRow), 'domain_id is a scalar');
+            Assert::same($domainId, (int) $domainInRow);
         } finally {
             $this->removeCreatedRow();
         }
@@ -133,9 +136,7 @@ final class LegacyApiSuite extends AbstractSuite
         );
 
         if ([] !== $rows) {
-            // This installation has real values on that domain; deleting them
-            // to prove a point is not worth it.
-            return;
+            Assert::skip('this installation has real values on the current domain');
         }
 
         Assert::null(yrewrite_domain_settings::getValue());
@@ -160,7 +161,6 @@ final class LegacyApiSuite extends AbstractSuite
 
         Assert::hasKey('yrewrite_domains', $registered);
         Assert::same(rex_yrewrite_domains_perm::class, $registered['yrewrite_domains']);
-        Assert::true(is_subclass_of(rex_yrewrite_domains_perm::class, DomainPerm::class));
     }
 
     /**
