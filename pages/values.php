@@ -36,13 +36,14 @@ if ([] === $domains) {
 // what this user may edit before they are handed out.
 $domainId = Backend::getActiveDomainId();
 
-echo Backend::renderDomainSwitch();
-
 // The languages depend on the domain: yrewrite decides per domain which ones
 // it serves, so they are resolved after the domain is known.
 $clangs = Backend::getEditableClangs($domainId);
 
 if ([] === $clangs) {
+    // Still offer the domain switch: without it there would be no way off a
+    // domain whose languages this user may not touch.
+    echo Backend::renderContextBar($domainId);
     echo rex_view::warning(rex_i18n::msg('domain_settings_no_clang_permission'));
     return;
 }
@@ -64,6 +65,8 @@ $baseParams = [
     'domain_id' => $domainId,
     'clang_id' => $clangId,
 ];
+
+echo Backend::renderContextBar($domainId, ['section' => Backend::sectionSlug($table)]);
 
 // ------------------------------------------------------------ section tabs
 // Handed to the panel as "before" rather than echoed: the fragment puts it
@@ -109,30 +112,6 @@ if (!Backend::hasFields($table)) {
     $fragment->setVar('body', $body, false);
     echo $fragment->parse('core/page/section.php');
     return;
-}
-
-// ---------------------------------------------------------- language switch
-if (count($clangs) > 1) {
-    $items = '';
-    foreach ($clangs as $clang) {
-        $isActive = $clang->getId() === $clangId;
-        $badge = $clang->getId() === $fallbackClangId
-            ? ' <span class="label label-info">' . rex_i18n::msg('domain_settings_fallback') . '</span>'
-            : '';
-
-        // The links carry btn classes on purpose. REDAXO's dark theme styles
-        // `.nav-tabs > li > .btn-default` but deliberately leaves plain
-        // bootstrap tabs alone ("redaxo uses custom tab markup", see
-        // be_style/…/bootstrap-dark-overrides/_navs.scss), so a bare
-        // <li><a> tab stays white in dark mode.
-        $items .= '<li' . ($isActive ? ' class="active"' : '') . '>'
-            . '<a class="btn btn-default"'
-            . ' data-clang-id="' . $clang->getId() . '"'
-            . ' href="' . rex_url::currentBackendPage(['domain_id' => $domainId, 'clang_id' => $clang->getId()]) . '">'
-            . rex_escape($clang->getName()) . $badge
-            . '</a></li>';
-    }
-    $body .= '<ul class="nav nav-tabs domain-settings-tabs domain-settings-language-tabs">' . $items . '</ul>';
 }
 
 // Render first, then work out what is inherited: a save happens inside

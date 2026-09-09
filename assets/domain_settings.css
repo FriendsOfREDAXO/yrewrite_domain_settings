@@ -151,6 +151,10 @@ body.rex-theme-dark .domain-settings-tabs > li.active > a.btn:focus {
    as a strip belonging to the tabs above it, not as a setting of its own. */
 
 .domain-settings-context {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 20px;
     margin: -10px 0 20px;
     padding: 8px 0;
 }
@@ -233,10 +237,17 @@ body.rex-theme-dark .domain-settings-section-tabs > li.active > a.btn:focus {
     }
 }
 
-/* Language tabs a notch smaller: they are the innermost step, and sitting
-   right under the section row they would otherwise read as a second one. */
+/* The language buttons share the strip with the domain select. The core
+   floats .rex-nav-language right only from the large breakpoint on; here the
+   strip is one line at every width, so it floats right throughout. */
 
-.domain-settings-language-tabs > li > a.btn {
-    padding: 4px 12px;
-    font-size: 12px;
+.domain-settings-context .domain-settings-languages {
+    /* The core floats .rex-nav-language right from the large breakpoint on;
+       here the flex line does the placing, so the float has to go. */
+    float: none;
+    margin-left: auto;
+}
+
+.domain-settings-context .btn-toolbar {
+    margin: 0;
 }

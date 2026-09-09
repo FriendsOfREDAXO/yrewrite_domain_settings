@@ -114,7 +114,7 @@
         if (dialog && window.jQuery) {
             var pendingClang = null;
 
-            document.querySelectorAll('.domain-settings-language-tabs a[data-clang-id]').forEach(function (link) {
+            document.querySelectorAll('.domain-settings-context a[data-clang-id]').forEach(function (link) {
                 link.addEventListener('click', function (event) {
                     if (!isDirty()) {
                         return;

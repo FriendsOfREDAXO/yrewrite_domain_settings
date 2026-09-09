@@ -7,6 +7,7 @@ use rex_addon;
 use rex_be_controller;
 use rex_clang;
 use rex_file;
+use rex_fragment;
 use rex_i18n;
 use rex_logger;
 use rex_path;
@@ -1058,8 +1059,7 @@ final class Backend
 
         // A GET form on the current page: switching the domain is a navigation
         // step, so it belongs in the URL and in the browser history.
-        return '<div class="domain-settings-context">'
-            . '<form action="' . rex_url::currentBackendPage() . '" method="get">'
+        return '<form action="' . rex_url::currentBackendPage() . '" method="get">'
             . '<input type="hidden" name="page" value="' . rex_escape(rex_be_controller::getCurrentPage()) . '">'
             // Stay in the same section across the switch where the new domain
             // has it; the page falls back to its first section where it does not.
@@ -1071,7 +1071,92 @@ final class Backend
             . '</div>'
             . '<noscript><button class="btn btn-default" type="submit">'
             . rex_i18n::msg('domain_settings_domain_switch') . '</button></noscript>'
-            . '</form>'
+            . '</form>';
+    }
+
+    /**
+     * The language buttons, in the shape the structure page uses them.
+     *
+     * Buttons rather than tabs: the language is picked in the context strip at
+     * the top, next to the domain, not inside the form. rex_view's own
+     * clangSwitchAsButtons() cannot be used directly - it builds its links
+     * with the parameter `clang`, and this addon reads `clang_id` - so the
+     * markup is assembled from the same fragment and the same btn-clang class.
+     *
+     * @param array<string, string> $params carried along in every link
+     */
+    public static function renderClangButtons(int $domainId, array $params = []): string
+    {
+        $clangs = self::getEditableClangs($domainId);
+
+        if (count($clangs) < 2) {
+            return '';
+        }
+
+        $activeId = self::getActiveClangId($domainId);
+        $fallbackId = DomainSettings::getFallbackClangId($domainId);
+
+        $buttons = [];
+        foreach ($clangs as $clang) {
+            $id = $clang->getId();
+            $label = rex_i18n::translate($clang->getName());
+
+            // Same icons as the structure page: they say whether the language
+            // is online, which is worth knowing before editing it.
+            $icon = $clang->isOnline() ? 'online' : 'offline';
+
+            $attributes = [
+                'class' => ['btn-clang'],
+                'title' => $id === $fallbackId
+                    ? $label . ' (' . rex_i18n::msg('domain_settings_fallback') . ')'
+                    : $label,
+                // The unsaved-changes dialog hooks onto this.
+                'data-clang-id' => $id,
+            ];
+
+            if ($id === $activeId) {
+                $attributes['class'][] = 'active';
+            }
+
+            $buttons[] = [
+                'label' => $label,
+                'icon' => $icon,
+                'url' => rex_url::currentBackendPage(['clang_id' => $id] + $params),
+                'attributes' => $attributes,
+            ];
+        }
+
+        $fragment = new rex_fragment();
+        $fragment->setVar('buttons', $buttons, false);
+
+        return '<div class="rex-nav-btn rex-nav-language domain-settings-languages">'
+            . '<div class="btn-toolbar">' . $fragment->parse('core/buttons/button_group.php') . '</div>'
+            . '</div>';
+    }
+
+    /**
+     * The context strip above the sections: which domain, which language.
+     *
+     * Both belong together - they say what the page below is about - and both
+     * disappear on their own when there is nothing to choose, so the strip is
+     * only rendered when at least one of them has something to show.
+     *
+     * @param array<string, string> $params carried along in the language links
+     */
+    public static function renderContextBar(int $domainId, array $params = []): string
+    {
+        $domainSwitch = self::renderDomainSwitch();
+        $clangButtons = self::renderClangButtons($domainId, $params);
+
+        if ('' === $domainSwitch && '' === $clangButtons) {
+            return '';
+        }
+
+        // Source order follows reading order; the flex layout pushes the
+        // languages to the right edge.
+        return '<div class="domain-settings-context">'
+            . $domainSwitch
+            . $clangButtons
             . '</div>';
     }
 }
