@@ -27,7 +27,6 @@ use RuntimeException;
 use function array_key_exists;
 use function count;
 use function in_array;
-use function is_scalar;
 use function strlen;
 
 use const ARRAY_FILTER_USE_KEY;
@@ -252,10 +251,17 @@ final class Backend
             // Through YForm's own cache rather than SHOW COLUMNS: the column
             // list sits in the same cache file the table came from, and this
             // runs on every backend request via PAGES_PREPARED. It also keeps
-            // a stale YForm registration - a table dropped elsewhere - from
-            // throwing and taking the whole backend down with it.
+            // a stale YForm registration from throwing here - though a table
+            // that is gone still fails later, when its values are read.
             $columns = $table->getColumns();
             if (!isset($columns['domain_id'], $columns['clang_id'])) {
+                continue;
+            }
+
+            // Enforced here as well, not only in createSection(): a table
+            // created by hand in the YForm table manager takes the same route,
+            // and a section keyed `settings` would push out the admin page.
+            if ($name !== $base && in_array(self::sectionSlug($name), self::RESERVED_SLUGS, true)) {
                 continue;
             }
 
@@ -266,12 +272,13 @@ final class Backend
     }
 
     /**
-     * Drops the section list cached for this request.
+     * Drops everything this class keeps for the duration of a request.
      *
-     * Needed after creating, renaming or deleting a section, because the list
-     * is built once per request - see the property.
+     * Needed after creating, renaming or deleting a section, and after
+     * anything that changes yrewrite's domains - all three caches are built
+     * once per request, see the properties.
      */
-    public static function resetSections(): void
+    public static function resetCaches(): void
     {
         self::$sections = null;
         self::$domains = null;
@@ -283,6 +290,10 @@ final class Backend
      *
      * Uses YForm's own table permission, so every section shows up in the role
      * form by itself and the authorisation is YForm's, not ours.
+     *
+     * Empty without a logged-in user - on the console, where copyValues()
+     * therefore finds nothing to do. A command that needs to work on sections
+     * has to go through getAllSections().
      *
      * @return array<string, string>
      */
@@ -374,8 +385,8 @@ final class Backend
             'mass_edit' => 0,
             'history' => 0,
         ]);
-        // setTable() clears YForm's cache itself; resetSections() is ours.
-        self::resetSections();
+        // setTable() clears YForm's cache itself; resetCaches() is ours.
+        self::resetCaches();
 
         return $table;
     }
@@ -417,7 +428,7 @@ final class Backend
         // table instead of trying to alter one it still believes exists.
         rex_sql_table::get($table)->drop();
 
-        self::resetSections();
+        self::resetCaches();
         DomainSettings::deleteCache();
 
         return true;
@@ -571,7 +582,7 @@ final class Backend
             'table_name' => $table,
             'name' => $label,
         ]);
-        self::resetSections();
+        self::resetCaches();
 
         return true;
     }
@@ -590,6 +601,15 @@ final class Backend
     public static function getEditableClangs(?int $domainId = null): array
     {
         $user = rex::getUser();
+
+        if (null === $user) {
+            return [];
+        }
+
+        // getComplexPerm() resolves 'clang' to rex_clang_perm, which the core
+        // registers itself - no null check needed, unlike the two above where
+        // the class comes from this addon and from YForm.
+        $perm = $user->getComplexPerm('clang');
         $available = null === $domainId ? [] : self::getDomainClangIds($domainId);
         $clangs = [];
 
@@ -598,7 +618,7 @@ final class Backend
                 continue;
             }
 
-            if (null === $user || $user->getComplexPerm('clang')->hasPerm($clang->getId())) {
+            if ($perm->hasPerm($clang->getId())) {
                 $clangs[] = $clang;
             }
         }
@@ -652,10 +672,13 @@ final class Backend
         $insert->insert();
         $id = (int) $insert->getLastId();
 
-        // No deleteCache() here on purpose. The row is empty, and an empty
-        // value reads exactly like a missing row (isEmpty() treats '' and null
-        // alike), so the resolved result does not change - while dropping the
-        // cache would, because this runs on every visit to the editing page.
+        // No deleteCache() here on purpose. The new row carries the column
+        // defaults, and none of YForm's shipped value types declares one at
+        // schema level - so every value is '' or null, which isEmpty() treats
+        // exactly like a missing row. The resolved result does not change,
+        // while dropping the cache would, because this runs on every visit to
+        // the editing page. A custom field type with a real database default
+        // would break that assumption; the next save drops the cache anyway.
         $dataset = rex_yform_manager_dataset::get($id, $table);
 
         if (null === $dataset) {
@@ -741,26 +764,7 @@ final class Backend
         }
 
         // Both languages in one query - the builder turns the array into IN().
-        $byClang = [];
-        $datasets = rex_yform_manager_dataset::query($table)
-            ->where('domain_id', $domainId)
-            ->where('clang_id', [$clangId, $fallbackClangId])
-            ->find();
-
-        foreach ($datasets as $dataset) {
-            if (!$dataset instanceof rex_yform_manager_dataset) {
-                continue;
-            }
-
-            // The driver hands columns back as int or as string depending on
-            // its configuration, so cast rather than assume either.
-            $clangValue = $dataset->getValue('clang_id');
-            if (!is_scalar($clangValue)) {
-                continue;
-            }
-
-            $byClang[(int) $clangValue] = $dataset->getData();
-        }
+        $byClang = DomainSettings::rowsByClang($table, $domainId, [$clangId, $fallbackClangId]);
 
         $current = $byClang[$clangId] ?? [];
         $fallback = $byClang[$fallbackClangId] ?? [];
@@ -772,7 +776,7 @@ final class Backend
             $isFilledThere = isset($fallback[$name]) && '' !== $fallback[$name];
 
             if ($isEmptyHere && $isFilledThere) {
-                $labels[] = $field->getLabel() ?: $name;
+                $labels[] = (string) ($field->getLabel() ?: $name);
             }
         }
 

@@ -2,6 +2,7 @@
 
 namespace FriendsOfRedaxo\DomainSettings\Tests;
 
+use FriendsOfRedaxo\DomainSettings\DomainPerm;
 use FriendsOfRedaxo\DomainSettings\DomainSettings;
 use FriendsOfRedaxo\DomainSettings\Test\AbstractSuite;
 use FriendsOfRedaxo\DomainSettings\Test\Assert;
@@ -161,6 +162,11 @@ final class LegacyApiSuite extends AbstractSuite
 
         Assert::hasKey('yrewrite_domains', $registered);
         Assert::same(rex_yrewrite_domains_perm::class, $registered['yrewrite_domains']);
+        Assert::same(
+            DomainPerm::class,
+            get_parent_class(rex_yrewrite_domains_perm::class),
+            'the compatibility class must keep sitting on the current one',
+        );
     }
 
     /**

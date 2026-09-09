@@ -71,7 +71,7 @@ class Values extends RoutePackage
                     ['_controller' => self::class . '::handleSection', 'query' => $query, 'section' => $table],
                     [], [], '', [], ['GET'],
                 ),
-                sprintf('Read global values of section "%s", fallback applied', $label),
+                sprintf('Read global values of section "%s", any domain and language, fallback applied', $label),
                 null,
                 new BearerAuth(),
             );
@@ -92,7 +92,7 @@ class Values extends RoutePackage
                     ['_controller' => self::class . '::handleWrite', 'query' => $query, 'Body' => $body, 'section' => $table],
                     [], [], '', [], ['PATCH'],
                 ),
-                sprintf('Update global values of section "%s"', $label),
+                sprintf('Update global values of section "%s", for any domain and language', $label),
                 null,
                 new BearerAuth(),
             );
@@ -202,22 +202,37 @@ class Values extends RoutePackage
      */
     private static function resolveContext($Parameter): array
     {
-        // Through the request object rather than $_REQUEST: that one also
-        // carries cookies depending on request_order, which have no business
-        // filling query parameters here.
-        $request = rex::getRequest();
+        // The query string, nothing else. $_REQUEST would also carry cookies
+        // depending on request_order, and the request body would arrive here
+        // too - Symfony parses a PATCH body into the request bag when the
+        // content type is missing. Both routes declare domain_id and clang_id
+        // as query parameters; the body carries the values to write.
         $query = RouteCollection::getQuerySet(
-            $request->query->all() + $request->request->all(),
+            rex::getRequest()->query->all(),
             $Parameter['query'],
         );
 
-        $domainId = (int) ($query['domain_id'] ?? 0);
-        $clangId = (int) ($query['clang_id'] ?? 0);
+        if (!is_array($query)) {
+            $query = [];
+        }
 
-        // Same check as for the language: without it a write request could
-        // create rows for domains that do not exist, and every one of them
-        // would end up in the value cache that the frontend reads.
-        if (!isset(Backend::getAllDomains()[$domainId])) {
+        $domainIdValue = $query['domain_id'] ?? 0;
+        $clangIdValue = $query['clang_id'] ?? 0;
+        $domainId = is_scalar($domainIdValue) ? (int) $domainIdValue : 0;
+        $clangId = is_scalar($clangIdValue) ? (int) $clangIdValue : 0;
+
+        // The route declares domain_id as optional with a default of 0, so 0
+        // has to mean "the first domain", not "unknown" - getAllDomains()
+        // drops the id 0 as soon as a real yrewrite domain exists, and every
+        // parameterless call would answer 400.
+        $domains = Backend::getAllDomains();
+
+        if (0 === $domainId) {
+            $domainId = (int) array_key_first($domains);
+        } elseif (!isset($domains[$domainId])) {
+            // Without this a write request could create rows for domains that
+            // do not exist, and every one of them would end up in the value
+            // cache the frontend reads.
             return [0, 0, new JsonResponse(['error' => 'Unknown domain_id'], 400)];
         }
 

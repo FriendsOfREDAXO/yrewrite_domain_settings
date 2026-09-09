@@ -87,4 +87,22 @@ class SectionsSuite extends AbstractSuite
         Assert::same('aus dem Testbereich', DomainSettings::get('selftest_text', null, Fixtures::DOMAIN_ID, $clangId));
         Assert::hasKey('selftest_text', DomainSettings::getAll(Fixtures::DOMAIN_ID, $clangId));
     }
+
+    /**
+     * The reserved page keys stay reserved.
+     *
+     * `main` belongs to the base table, `settings` and `help` to the static
+     * subpages - a section on one of those keys would take over the page or
+     * make the other section unreachable. The list is a copy of what
+     * package.yml declares, so it can drift; this is what notices that.
+     */
+    public function testReservedSlugsAreRefused(): void
+    {
+        foreach (['Main', 'Settings', 'Help'] as $label) {
+            Assert::null(
+                Backend::createSection($label),
+                'a section called "' . $label . '" must be refused',
+            );
+        }
+    }
 }

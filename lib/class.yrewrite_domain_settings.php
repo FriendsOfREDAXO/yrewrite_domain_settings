@@ -84,17 +84,12 @@ class yrewrite_domain_settings
             return [];
         }
 
-        $allowedDomains = $perm->getDomains();
-
-        if ($user->isAdmin() || rex_complex_perm::ALL === $allowedDomains) {
-            return $allDomains;
-        }
-
-        $allowed = array_map('strval', (array) $allowedDomains);
-
-        return array_values(array_filter($allDomains, static function (array $domain) use ($allowed) {
-            return in_array((string) $domain['id'], $allowed, true);
-        }));
+        // hasPerm() covers both the admin case and the `all` value, which is
+        // why the deprecated getDomains() is not needed here any more.
+        return array_values(array_filter(
+            $allDomains,
+            static fn (array $domain) => $perm->hasPerm($domain['id']),
+        ));
     }
 
     /**
@@ -116,13 +111,19 @@ class yrewrite_domain_settings
         $clangId = rex_clang::getCurrentId();
         $fallbackClangId = DomainSettings::getFallbackClangId($domainId);
 
-        $row = self::fetchRow($table, $domainId, $clangId);
+        $byClang = DomainSettings::rowsByClang(
+            $table->getTableName(),
+            $domainId,
+            [$clangId, $fallbackClangId],
+        );
+
+        $row = $byClang[$clangId] ?? [];
 
         if ($clangId === $fallbackClangId) {
             return $row;
         }
 
-        $fallbackRow = self::fetchRow($table, $domainId, $fallbackClangId);
+        $fallbackRow = $byClang[$fallbackClangId] ?? [];
 
         if ([] === $row) {
             return $fallbackRow;
@@ -135,16 +136,5 @@ class yrewrite_domain_settings
         }
 
         return $row + $fallbackRow;
-    }
-
-    /** @return array<string, mixed> */
-    private static function fetchRow(rex_yform_manager_table $table, int $domainId, int $clangId): array
-    {
-        $item = $table->query()
-            ->where('domain_id', $domainId)
-            ->where('clang_id', $clangId)
-            ->findOne();
-
-        return null === $item ? [] : $item->getData();
     }
 }

@@ -48,7 +48,7 @@ rex_extension::register('CLANG_ADDED', static function (): void {
 
 rex_extension::register('CACHE_DELETED', static function (): void {
     DomainSettings::deleteCache();
-    Backend::resetSections();
+    Backend::resetCaches();
 
     // Keep the IDE helper in step with the fields. There is no extension point
     // for schema changes in YForm, but clearing the cache is what one does
@@ -63,11 +63,20 @@ rex_extension::register('CACHE_DELETED', static function (): void {
 
 // A deleted language leaves rows behind that nothing can reach any more.
 rex_extension::register('CLANG_DELETED', static function (rex_extension_point $ep): void {
-    $clangId = rex_type::int($ep->getParam('id'));
+    // Not rex_type::int(): that one throws, and this point fires *after* the
+    // language is gone - an exception here would leave behind exactly the rows
+    // this handler exists to remove.
+    $clangIdParam = $ep->getParam('id');
+
+    if (!is_scalar($clangIdParam)) {
+        return;
+    }
+
+    $clangId = (int) $clangIdParam;
 
     foreach (array_keys(Backend::getAllSections()) as $table) {
         rex_sql::factory()->setQuery(
-            'DELETE FROM ' . $table . ' WHERE clang_id = :clang',
+            'DELETE FROM ' . rex_sql::factory()->escapeIdentifier($table) . ' WHERE clang_id = :clang',
             ['clang' => $clangId],
         );
     }
@@ -78,7 +87,8 @@ rex_extension::register('CLANG_DELETED', static function (rex_extension_point $e
 // Keep the media pool from silently dropping a logo that is still in use.
 rex_extension::register('MEDIA_IS_IN_USE', static function (rex_extension_point $ep) {
     $warnings = (array) $ep->getSubject();
-    $filename = rex_type::string($ep->getParam('filename'));
+    $filenameParam = $ep->getParam('filename');
+    $filename = is_scalar($filenameParam) ? (string) $filenameParam : '';
 
     if (DomainSettings::isMediaInUse($filename)) {
         $warnings[] = rex_i18n::msg('domain_settings_media_in_use');

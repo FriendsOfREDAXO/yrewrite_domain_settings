@@ -75,23 +75,32 @@ final class Fixtures
         // setTableField() and generateTableAndFields() clear YForm's cache
         // themselves; only our own static needs resetting.
         rex_yform_manager_table_api::generateTableAndFields($managerTable);
-        Backend::resetSections();
+        Backend::resetCaches();
         DomainSettings::deleteCache();
     }
 
     public function tearDown(): void
     {
-        $table = rex::getTable(DomainSettings::ADDON) . '_' . self::SECTION_SUFFIX;
+        // Only ever remove what setUp() created. The caller runs this from a
+        // catch *and* a finally, so without this guard the refusal to touch a
+        // foreign "Selftest" section would be followed by deleting it anyway.
+        if (null === $this->table) {
+            return;
+        }
+
+        $table = $this->table;
 
         if (null !== rex_yform_manager_table::get($table)) {
             rex_yform_manager_table_api::removeTable($table);
         }
 
         // Through rex_sql_table so its instance pool learns the table is gone.
-        rex_sql_table::get($table)->drop();
+        if ('' !== $table) {
+            rex_sql_table::get($table)->drop();
+        }
 
         $this->table = null;
-        Backend::resetSections();
+        Backend::resetCaches();
         DomainSettings::deleteCache();
     }
 

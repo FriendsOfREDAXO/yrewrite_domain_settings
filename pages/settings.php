@@ -41,10 +41,7 @@ if ('' !== $func) {
         // Per domain, because yrewrite may serve different languages on each:
         // copying into a language the target domain does not have would write
         // rows that are never delivered.
-        $clangIdsFor = static fn (int $domainId) => array_map(
-            static fn (rex_clang $clang) => $clang->getId(),
-            Backend::getEditableClangs($domainId),
-        );
+        $clangIdsFor = Backend::getEditableClangIds(...);
 
         $onlyTable = rex_post('copy_section', 'string', '');
         $from = [rex_post('copy_from_domain', 'int', 0), rex_post('copy_from_clang', 'int', 0)];
@@ -189,7 +186,7 @@ if (count($domains) > 1 || count($clangs) > 1) {
         . '</div>'
         . $pick('copy_section', $sectionOptions, rex_i18n::msg('domain_settings_sections'))
         . '<button class="btn btn-save" type="submit"'
-        . ' data-confirm="' . rex_escape(rex_i18n::msg('domain_settings_copy_confirm')) . '">'
+        . ' data-confirm="' . rex_escape(rex_i18n::rawMsg('domain_settings_copy_confirm')) . '">'
         . rex_i18n::msg('domain_settings_copy_submit') . '</button>'
         . '</form>';
 

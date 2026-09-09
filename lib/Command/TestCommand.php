@@ -116,7 +116,8 @@ class TestCommand extends rex_console_command
             }
         } catch (Throwable $e) {
             $io->error('Setup failed: ' . $e->getMessage());
-            $fixtures->tearDown();
+
+            // No tearDown() here - the finally below runs on the way out.
             return self::FAILURE;
         } finally {
             // Always clean up, even when a test blew up halfway through.

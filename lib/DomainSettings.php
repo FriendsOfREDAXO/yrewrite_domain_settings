@@ -27,8 +27,11 @@ use function is_scalar;
  * both "not translated yet" and "identical in every language" with the same
  * mechanism.
  *
- * The whole set is small enough to keep in a single cache file, which is read
- * lazily on first access. Requests that never ask for a value pay nothing.
+ * All domains and languages share one cache file, read lazily on first
+ * access - requests that never ask for a value pay nothing. Measured: 16 KB
+ * and 0.05 ms per request at three domains, 560 KB and 1.3 ms at ten. From
+ * about ten domains on, splitting the file per domain starts to pay off;
+ * isMediaInUse() would then need its own way to see all of them.
  */
 final class DomainSettings
 {
@@ -37,9 +40,6 @@ final class DomainSettings
 
     /** @var array<int, array<int, array<string, string>>>|null domain => clang => key => value */
     private static ?array $cache = null;
-
-    /** The domain of this request; it cannot change while it is running. */
-    private static ?int $currentDomainId = null;
 
     /**
      * Returns a single value, or $default when it is not set anywhere.
@@ -135,6 +135,48 @@ final class DomainSettings
     }
 
     /**
+     * The stored rows of a table for one domain, indexed by language.
+     *
+     * One query for all requested languages - the query builder turns the
+     * array into an IN(). Shared by the three callers that need the raw rows:
+     * the section reader below, the inherited-values hint in the backend, and
+     * the compatibility layer.
+     *
+     * @internal
+     *
+     * @param list<int> $clangIds
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function rowsByClang(string $table, int $domainId, array $clangIds): array
+    {
+        $rows = [];
+
+        $datasets = rex_yform_manager_dataset::query($table)
+            ->where('domain_id', $domainId)
+            ->where('clang_id', array_values(array_unique($clangIds)))
+            ->find();
+
+        foreach ($datasets as $dataset) {
+            if (!$dataset instanceof rex_yform_manager_dataset) {
+                continue;
+            }
+
+            // The driver hands columns back as int or as string depending on
+            // its configuration, so cast rather than assume either.
+            $clangValue = $dataset->getValue('clang_id');
+
+            if (!is_scalar($clangValue)) {
+                continue;
+            }
+
+            $rows[(int) $clangValue] = $dataset->getData();
+        }
+
+        return $rows;
+    }
+
+    /**
      * Every value of a single section, fallback applied.
      *
      * Not served from the value cache: that one merges all sections into one
@@ -150,33 +192,16 @@ final class DomainSettings
         $clangId ??= rex_clang::getCurrentId();
         $fallbackClangId = self::getFallbackClangId($domainId);
 
-        $byClang = [];
-        $datasets = rex_yform_manager_dataset::query($table)
-            ->where('domain_id', $domainId)
-            ->where('clang_id', array_values(array_unique([$clangId, $fallbackClangId])))
-            ->find();
-
-        foreach ($datasets as $dataset) {
-            if (!$dataset instanceof rex_yform_manager_dataset) {
-                continue;
-            }
-
-            // The driver hands columns back as int or as string depending on
-            // its configuration, so cast rather than assume either.
-            $clangValue = $dataset->getValue('clang_id');
-            if (!is_scalar($clangValue)) {
-                continue;
-            }
-
-            $byClang[(int) $clangValue] = $dataset->getData();
-        }
+        $byClang = self::rowsByClang($table, $domainId, [$clangId, $fallbackClangId]);
 
         $values = [];
         foreach ([$fallbackClangId, $clangId] as $id) {
             foreach ($byClang[$id] ?? [] as $key => $value) {
-                if (!self::isEmpty($value)) {
-                    $values[$key] = (string) $value;
+                if (self::isEmpty($value) || !is_scalar($value)) {
+                    continue;
                 }
+
+                $values[$key] = (string) $value;
             }
         }
 
@@ -212,21 +237,17 @@ final class DomainSettings
      */
     public static function getCurrentDomainId(): int
     {
-        if (null !== self::$currentDomainId) {
-            return self::$currentDomainId;
-        }
-
         if (!rex_addon::get('yrewrite')->isAvailable()) {
-            return self::$currentDomainId = 0;
+            return 0;
         }
 
         if (null === rex_article::getCurrent()) {
-            return self::$currentDomainId = 0;
+            return 0;
         }
 
         $domain = rex_yrewrite::getCurrentDomain();
 
-        return self::$currentDomainId = null === $domain ? 0 : (int) $domain->getId();
+        return null === $domain ? 0 : (int) $domain->getId();
     }
 
     /**
@@ -269,7 +290,6 @@ final class DomainSettings
     public static function deleteCache(): void
     {
         self::$cache = null;
-        self::$currentDomainId = null;
         rex_file::delete(self::getCacheFile());
     }
 
@@ -290,7 +310,7 @@ final class DomainSettings
 
             foreach ($table->getValueFields() as $field) {
                 if (in_array($field->getTypeName(), ['be_media', 'be_medialist'], true)) {
-                    $names[] = $field->getName();
+                    $names[] = (string) $field->getName();
                 }
             }
         }
@@ -307,7 +327,14 @@ final class DomainSettings
 
         $cached = rex_file::getCache(self::getCacheFile(), null);
         if (is_array($cached)) {
-            return self::$cache = self::normalise($cached);
+            $normalised = self::normalise($cached);
+
+            // Everything thrown away although there was something to read: a
+            // file in a shape this version does not know, from an older
+            // release or written by hand. Rebuilding beats serving nothing.
+            if ([] !== $normalised || [] === $cached) {
+                return self::$cache = $normalised;
+            }
         }
 
         $data = self::build();
@@ -332,12 +359,15 @@ final class DomainSettings
         $result = [];
 
         foreach ($data as $domainId => $byClang) {
-            if (!is_array($byClang)) {
+            // A non-numeric key would cast to 0 - and 0 is a real bucket, the
+            // one served without yrewrite. A foreign file would be delivered
+            // rather than discarded.
+            if (!is_array($byClang) || (string) (int) $domainId !== (string) $domainId) {
                 continue;
             }
 
             foreach ($byClang as $clangId => $values) {
-                if (!is_array($values)) {
+                if (!is_array($values) || (string) (int) $clangId !== (string) $clangId) {
                     continue;
                 }
 
@@ -373,26 +403,32 @@ final class DomainSettings
         $duplicates = [];
 
         foreach (array_keys(Backend::getAllSections()) as $table) {
-            $first = true;
+            // From the columns, not from the first row: a section without rows
+            // would otherwise contribute nothing and its duplicate field names
+            // would stay unreported until someone saves there for the first
+            // time.
+            $managerTable = rex_yform_manager_table::get($table);
 
-            foreach (rex_sql::factory()->getArray('SELECT * FROM ' . $table) as $row) {
+            foreach (array_keys($managerTable?->getColumns() ?? []) as $key) {
+                if (in_array($key, ['id', 'domain_id', 'clang_id'], true)) {
+                    continue;
+                }
+
+                if (isset($seen[$key]) && $seen[$key] !== $table) {
+                    $duplicates[$key] = true;
+                }
+
+                $seen[$key] = $table;
+            }
+
+            $sql = rex_sql::factory();
+
+            foreach ($sql->getArray('SELECT * FROM ' . $sql->escapeIdentifier($table)) as $row) {
                 $domainId = (int) $row['domain_id'];
                 $clangId = (int) $row['clang_id'];
                 unset($row['id'], $row['domain_id'], $row['clang_id']);
 
                 $row = array_map(static fn ($value) => (string) $value, $row);
-
-                if ($first) {
-                    // Depends on the columns, not on the rows - once per table
-                    // is enough.
-                    foreach (array_keys($row) as $key) {
-                        if (isset($seen[$key]) && $seen[$key] !== $table) {
-                            $duplicates[$key] = true;
-                        }
-                        $seen[$key] = $table;
-                    }
-                    $first = false;
-                }
 
                 $data[$domainId][$clangId] = ($data[$domainId][$clangId] ?? []) + $row;
             }

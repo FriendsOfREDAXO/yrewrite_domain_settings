@@ -127,8 +127,8 @@ if ('' !== $currentName && $currentName !== $table) {
         : '';
 }
 
+// setTable() clears YForm's table cache itself.
 rex_yform_manager_table_api::setTable($registration);
-rex_yform_manager_table::deleteCache();
 
 // The value cache still holds the pre-update shape.
 rex_file::delete(rex_path::addonCache('yrewrite_domain_settings', 'values.json'));
