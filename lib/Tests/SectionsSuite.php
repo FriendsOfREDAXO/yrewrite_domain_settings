@@ -140,10 +140,16 @@ class SectionsSuite extends AbstractSuite
                 array_key_exists($table, Backend::getAllSections()),
                 'it stays a section, so it can still be read and deleted',
             );
-            Assert::false(
-                array_key_exists($table, Backend::getSections()),
-                'but it must not reach the navigation',
-            );
+
+            // getSections() is fail-closed and the console has no user, so
+            // without a user in place this would assert against an empty list
+            // and pass no matter what the filter does.
+            $this->fixtures->withAdminUser(static function () use ($table): void {
+                Assert::false(
+                    array_key_exists($table, Backend::getSections()),
+                    'but it must not reach the navigation',
+                );
+            });
         } finally {
             rex_yform_manager_table_api::removeTable($table);
             rex_sql_table::get($table)->drop();

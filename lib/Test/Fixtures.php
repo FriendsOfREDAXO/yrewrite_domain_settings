@@ -122,33 +122,31 @@ final class Fixtures
      *
      * The console has no user, and the permission filters are fail-closed -
      * without this, every test that touches them would compare two empty
-     * lists and pass without asking anything. Returns false when the instance
-     * has no administrator to borrow.
+     * lists and pass without asking anything.
+     *
+     * The user is built rather than borrowed: rex_user reads its values from
+     * the rex_sql it is given, and getValue() answers from the values set on
+     * it before ever touching the database. That is how the core does it in
+     * its own tests (core/tests/be/navigation_test.php), it needs no
+     * administrator to exist on this instance, and it leaves real accounts
+     * alone.
+     *
+     * Meant for read-only checks. Anything saved inside the callback would
+     * record this stand-in as its author.
      */
-    public function withAdminUser(callable $callback): bool
+    public function withAdminUser(callable $callback): void
     {
         $previous = rex::getUser();
 
-        if (null === $previous) {
-            $sql = rex_sql::factory();
-            $sql->setQuery(
-                'SELECT id FROM ' . rex::getTable('user') . ' WHERE admin = 1 AND status = 1 ORDER BY id LIMIT 1',
-            );
-
-            if (0 === $sql->getRows()) {
-                return false;
-            }
-
-            rex::setProperty('user', rex_user::get((int) $sql->getValue('id')));
-        }
+        $sql = rex_sql::factory();
+        $sql->setValue('admin', 1);
+        rex::setProperty('user', new rex_user($sql));
 
         try {
             $callback();
         } finally {
             rex::setProperty('user', $previous);
         }
-
-        return true;
     }
 
     public function fallbackClangId(): int

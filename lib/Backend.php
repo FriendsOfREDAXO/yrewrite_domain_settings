@@ -79,6 +79,14 @@ final class Backend
     private static array $domainClangIds = [];
 
     /**
+     * Section tables already reported as colliding, so the warning is written
+     * once per process rather than once per backend request.
+     *
+     * @var array<string, true>
+     */
+    private static array $loggedSlugCollisions = [];
+
+    /**
      * Every domain known to the system, as id => label.
      *
      * Without yrewrite there is exactly one entry: domain 0, the whole site.
@@ -271,11 +279,23 @@ final class Backend
             // the section simply would not appear otherwise.
             $slug = self::sectionSlug($name);
 
+            // A table named exactly like the base plus an underscore passes
+            // the prefix test and leaves nothing behind as a key.
+            if ('' === $slug) {
+                continue;
+            }
+
             if ($name !== $base && isset($slugs[$slug])) {
-                rex_logger::factory()->warning(
-                    'domain_settings: section {table} is ignored, another section already uses the key {slug}',
-                    ['table' => $name, 'slug' => $slug],
-                );
+                // Once per process, not once per request: this runs on every
+                // backend page through PAGES_PREPARED, and a permanent
+                // collision would otherwise grow the log by a line per view.
+                if (!isset(self::$loggedSlugCollisions[$name])) {
+                    self::$loggedSlugCollisions[$name] = true;
+                    rex_logger::factory()->warning(
+                        'domain_settings: section {table} is ignored, another section already uses the key {slug}',
+                        ['table' => $name, 'slug' => $slug],
+                    );
+                }
 
                 continue;
             }

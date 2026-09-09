@@ -43,17 +43,13 @@ final class DomainLanguagesSuite extends AbstractSuite
     {
         // getEditableClangs() is fail-closed: without a logged-in user it is
         // empty, and the console has none. Comparing two empty lists would
-        // pass without testing anything, so borrow an administrator.
-        $ran = $this->fixtures->withAdminUser(static function (): void {
+        // pass without testing anything.
+        $this->fixtures->withAdminUser(static function (): void {
             Assert::same(
                 array_map(static fn (rex_clang $c) => $c->getId(), Backend::getEditableClangs()),
                 array_map(static fn (rex_clang $c) => $c->getId(), Backend::getEditableClangs(Fixtures::DOMAIN_ID)),
             );
         });
-
-        if (!$ran) {
-            Assert::skip('no administrator on this instance to run the permission path with');
-        }
     }
 
     /** Every language a domain reports has to exist in the core. */
@@ -69,7 +65,7 @@ final class DomainLanguagesSuite extends AbstractSuite
     /** The tabs of a domain never show a language that domain does not serve. */
     public function testEditableLanguagesStayInsideTheDomain(): void
     {
-        $ran = $this->fixtures->withAdminUser(static function (): void {
+        $this->fixtures->withAdminUser(static function (): void {
             foreach (array_keys(Backend::getAllDomains()) as $domainId) {
                 $available = Backend::getDomainClangIds($domainId);
                 if ([] === $available) {
@@ -84,10 +80,6 @@ final class DomainLanguagesSuite extends AbstractSuite
                 }
             }
         });
-
-        if (!$ran) {
-            Assert::skip('no administrator on this instance to run the permission path with');
-        }
     }
 
     /** A value must not inherit from a language its domain does not serve. */
