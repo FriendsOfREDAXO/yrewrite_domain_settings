@@ -159,17 +159,17 @@ if ($saved) {
     }
 }
 
-// Tell the editor which values this language takes from elsewhere, so an
-// empty field reads as "taken from German" rather than "missing".
-$inherited = Backend::getInheritedKeys($table, $domainId, $clangId);
-if ([] !== $inherited) {
-    // No rex_escape() on the arguments: rex_i18n::msg() escapes the
+// Tell the editor that an empty field reads as "taken from German" rather
+// than "missing". Shown on every tab of every language but the fallback one -
+// the rule holds there whether or not a field happens to be empty right now,
+// and a hint that comes and goes is one nobody learns to rely on.
+if ($clangId !== $fallbackClangId) {
+    // No rex_escape() on the argument: rex_i18n::msg() escapes the
     // interpolated message with html_simplified, doing it twice turns
     // an & into &amp;amp;.
     $body .= rex_view::info(rex_i18n::msg(
         'domain_settings_inherited_hint',
         rex_clang::get($fallbackClangId)?->getName() ?? '',
-        implode(', ', $inherited),
     ));
 }
 

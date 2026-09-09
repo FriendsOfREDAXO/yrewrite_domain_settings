@@ -1093,13 +1093,14 @@ final class Backend
     }
 
     /**
-     * The language buttons, in the shape the structure page uses them.
+     * The language switch, built exactly like the one on the structure page.
      *
-     * Buttons rather than tabs: the language is picked in the context strip at
-     * the top, next to the domain, not inside the form. rex_view's own
-     * clangSwitchAsButtons() cannot be used directly - it builds its links
-     * with the parameter `clang`, and this addon reads `clang_id` - so the
-     * markup is assembled from the same fragment and the same btn-clang class.
+     * rex_view::clangSwitchAsButtons() cannot be called directly for two
+     * reasons: it builds its links with the parameter `clang` while this addon
+     * reads `clang_id`, and it offers every language the user may edit rather
+     * than the ones this domain serves. So the items are assembled here and
+     * handed to the core's own fragments - same markup, same classes, same
+     * switch to a dropdown once there are too many for a button row.
      *
      * @param array<string, string> $params carried along in every link
      */
@@ -1111,23 +1112,31 @@ final class Backend
             return '';
         }
 
+        // The same threshold the core uses: four languages no longer fit a
+        // button row.
+        if (count($clangs) >= 4) {
+            return self::renderClangDropdown($clangs, $domainId, $params);
+        }
+
         $activeId = self::getActiveClangId($domainId);
         $fallbackId = DomainSettings::getFallbackClangId($domainId);
 
         $buttons = [];
         foreach ($clangs as $clang) {
             $id = $clang->getId();
-            $label = rex_i18n::translate($clang->getName());
+            $name = rex_i18n::translate($clang->getName());
 
-            // Same icons as the structure page: they say whether the language
-            // is online, which is worth knowing before editing it.
-            $icon = $clang->isOnline() ? 'online' : 'offline';
+            // Icon inside the label, exactly as the core does it - the space
+            // after the tag is part of it.
+            $icon = $clang->isOnline()
+                ? '<i class="rex-icon rex-icon-online"></i> '
+                : '<i class="rex-icon rex-icon-offline"></i> ';
 
             $attributes = [
                 'class' => ['btn-clang'],
                 'title' => $id === $fallbackId
-                    ? $label . ' (' . rex_i18n::msg('domain_settings_fallback') . ')'
-                    : $label,
+                    ? $name . ' (' . rex_i18n::msg('domain_settings_fallback') . ')'
+                    : $name,
                 // The unsaved-changes dialog hooks onto this.
                 'data-clang-id' => $id,
             ];
@@ -1137,8 +1146,7 @@ final class Backend
             }
 
             $buttons[] = [
-                'label' => $label,
-                'icon' => $icon,
+                'label' => $icon . $name,
                 'url' => rex_url::currentBackendPage(['clang_id' => $id] + $params),
                 'attributes' => $attributes,
             ];
@@ -1147,9 +1155,55 @@ final class Backend
         $fragment = new rex_fragment();
         $fragment->setVar('buttons', $buttons, false);
 
-        return '<div class="rex-nav-btn rex-nav-language domain-settings-languages">'
+        return '<div class="rex-nav-btn rex-nav-language">'
             . '<div class="btn-toolbar">' . $fragment->parse('core/buttons/button_group.php') . '</div>'
             . '</div>';
+    }
+
+    /**
+     * The language switch as a dropdown, for when there are too many buttons.
+     *
+     * @param list<rex_clang>       $clangs
+     * @param array<string, string> $params
+     */
+    private static function renderClangDropdown(array $clangs, int $domainId, array $params): string
+    {
+        $activeId = self::getActiveClangId($domainId);
+
+        $buttonLabel = '';
+        $items = [];
+
+        foreach ($clangs as $clang) {
+            $id = $clang->getId();
+            $name = rex_i18n::translate($clang->getName());
+
+            $item = [
+                'title' => $name,
+                'href' => rex_url::currentBackendPage(['clang_id' => $id] + $params),
+                'attributes' => 'data-clang-id="' . $id . '"',
+            ];
+
+            if ($id === $activeId) {
+                $item['active'] = true;
+                $buttonLabel = $name;
+            }
+
+            $items[] = $item;
+        }
+
+        $fragment = new rex_fragment();
+        $fragment->setVar('class', 'rex-language');
+        $fragment->setVar('button_prefix', rex_i18n::msg('language'));
+        $fragment->setVar('button_label', $buttonLabel);
+        $fragment->setVar('header', rex_i18n::msg('clang_select'));
+        $fragment->setVar('items', $items, false);
+
+        if (rex::getUser()?->isAdmin() ?? false) {
+            $fragment->setVar('footer', '<a href="' . rex_url::backendPage('system/lang') . '">'
+                . '<i class="fa fa-flag"></i> ' . rex_i18n::msg('languages_edit') . '</a>', false);
+        }
+
+        return $fragment->parse('core/dropdowns/dropdown.php');
     }
 
     /**
@@ -1174,7 +1228,7 @@ final class Backend
         // languages to the right edge.
         return '<div class="domain-settings-context">'
             . $domainSwitch
-            . $clangButtons
+            . ('' === $clangButtons ? '' : '<div class="domain-settings-languages">' . $clangButtons . '</div>')
             . '</div>';
     }
 

@@ -10,6 +10,7 @@ use FriendsOfRedaxo\DomainSettings\Tests\CacheSuite;
 use FriendsOfRedaxo\DomainSettings\Tests\DomainLanguagesSuite;
 use FriendsOfRedaxo\DomainSettings\Tests\FallbackSuite;
 use FriendsOfRedaxo\DomainSettings\Tests\LegacyApiSuite;
+use FriendsOfRedaxo\DomainSettings\Tests\SectionDomainsSuite;
 use FriendsOfRedaxo\DomainSettings\Tests\SectionsSuite;
 use FriendsOfRedaxo\DomainSettings\Tests\SecuritySuite;
 use ReflectionClass;
@@ -46,6 +47,7 @@ class TestCommand extends rex_console_command
         'security' => SecuritySuite::class,
         'legacy' => LegacyApiSuite::class,
         'domain-languages' => DomainLanguagesSuite::class,
+        'section-domains' => SectionDomainsSuite::class,
     ];
 
     protected function configure(): void

@@ -159,13 +159,18 @@ body.rex-theme-dark .domain-settings-tabs > li.active > a.btn:focus {
     padding: 8px 0;
 }
 
+/* The select takes the room up to the language switch, the way the structure
+   page lets its category select fill the line. */
+
+.domain-settings-context > form {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .domain-settings-context .form-group {
-    display: inline-block;
+    display: flex;
+    align-items: center;
     margin: 0;
-    vertical-align: middle;
-    /* Shrink-to-fit measures the select's own width, so label and field end up
-       on two lines without this. */
-    white-space: nowrap;
 }
 
 /* display is set explicitly: the backend puts labels on their own line, which
@@ -182,15 +187,12 @@ body.rex-theme-dark .domain-settings-tabs > li.active > a.btn:focus {
    without this the label would sit on its own line above the field. */
 
 .domain-settings-context .rex-select-style {
-    display: inline-block;
-    vertical-align: middle;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .domain-settings-context select {
-    display: inline-block;
-    width: auto;
-    min-width: 220px;
-    vertical-align: middle;
+    width: 100%;
 }
 
 /* Section tabs: the row the panel below hangs from.
@@ -242,10 +244,14 @@ body.rex-theme-dark .domain-settings-section-tabs > li.active > a.btn:focus {
    strip is one line at every width, so it floats right throughout. */
 
 .domain-settings-context .domain-settings-languages {
-    /* The core floats .rex-nav-language right from the large breakpoint on;
-       here the flex line does the placing, so the float has to go. */
+    flex: 0 0 auto;
+}
+
+.domain-settings-context .rex-nav-language {
+    /* The core floats it right from the large breakpoint on; here the flex
+       line does the placing, so the float has to go. */
     float: none;
-    margin-left: auto;
+    margin-left: 0;
 }
 
 .domain-settings-context .btn-toolbar {

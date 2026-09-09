@@ -27,9 +27,16 @@ if ('' !== $func) {
         echo rex_view::warning(rex_i18n::msg('csrf_token_invalid'));
     } elseif ('add' === $func) {
         $label = rex_post('section_label', 'string', '');
-        echo null === Backend::createSection($label)
-            ? rex_view::warning(rex_i18n::msg('domain_settings_section_invalid'))
-            : rex_view::success(rex_i18n::msg('domain_settings_section_added', $label));
+        $created = Backend::createSection($label);
+
+        if (null === $created) {
+            echo rex_view::warning(rex_i18n::msg('domain_settings_section_invalid'));
+        } else {
+            // Assigned right away rather than in a second step: a tab that is
+            // meant for one domain should not appear on the others in between.
+            Backend::setSectionDomains($created, (array) rex_post('new_section_domains', 'array', []));
+            echo rex_view::success(rex_i18n::msg('domain_settings_section_added', $label));
+        }
     } elseif ('delete' === $func) {
         $table = rex_post('delete_section', 'string', '');
         echo Backend::deleteSection($table)
@@ -184,6 +191,28 @@ foreach (Backend::getAllSections() as $table => $label) {
 
 $hidden = '<input type="hidden" name="page" value="' . rex_escape(rex_be_controller::getCurrentPage()) . '">';
 
+// Same control as in the list below, with everything ticked: a new tab is
+// offered on every domain unless the editor says otherwise right here.
+$newSectionDomains = '';
+if ($hasDomains) {
+    $select = new rex_select();
+    $select->setName('new_section_domains[]');
+    $select->setId('domain-settings-new-domains');
+    $select->setAttribute('class', 'form-control selectpicker');
+    $select->setAttribute('data-selected-text-format', 'count > 1');
+    $select->setAttribute('data-actions-box', 'true');
+    $select->setAttribute('data-width', '100%');
+    $select->setAttribute('title', rex_i18n::msg('domain_settings_section_domains_none'));
+    $select->setMultiple(true);
+    $select->setSelected(array_keys($allDomains));
+    $select->addArrayOptions($allDomains);
+
+    $newSectionDomains = '<div class="form-group">'
+        . '<label for="domain-settings-new-domains">' . rex_i18n::msg('domain_settings_section_domains') . '</label>'
+        . $select->get()
+        . '</div>';
+}
+
 // Creating and editing sit in one panel: both are about sections, and the
 // editor should not have to hunt for them in two places.
 $body = '<p>' . rex_i18n::msg('domain_settings_sections_notice') . '</p>'
@@ -194,8 +223,8 @@ $body = '<p>' . rex_i18n::msg('domain_settings_sections_notice') . '</p>'
     . '<div class="form-group">'
     . '<label for="domain-settings-section-label">' . rex_i18n::msg('domain_settings_section_label') . '</label>'
     . '<input class="form-control" type="text" id="domain-settings-section-label" name="section_label" value="" required>'
-    . '<p class="help-block">' . rex_i18n::msg('domain_settings_section_label_notice') . '</p>'
     . '</div>'
+    . $newSectionDomains
     . '<button class="btn btn-save" type="submit">' . rex_i18n::msg('domain_settings_section_add') . '</button>'
     . '</form>';
 
@@ -215,7 +244,6 @@ $body .= '<form class="domain-settings-sections" action="' . rex_url::currentBac
             . '</tr></thead>'
         : '')
     . '<tbody>' . $rows . '</tbody></table>'
-    . ($hasDomains ? '<p class="help-block">' . rex_i18n::msg('domain_settings_section_domains_notice') . '</p>' : '')
     . '<button class="btn btn-save" type="submit">' . rex_i18n::msg('domain_settings_sections_save') . '</button>'
     . '</fieldset>'
     . '</form>';
