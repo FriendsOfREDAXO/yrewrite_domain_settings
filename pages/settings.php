@@ -261,6 +261,26 @@ $body = '<p>' . rex_i18n::msg('domain_settings_fallback_notice') . '</p>'
     . '<button class="btn btn-save" type="submit">' . rex_i18n::msg('domain_settings_save') . '</button>'
     . '</form>';
 
+// What the setting above actually means per domain. The chain is short, but
+// its result is not obvious - a domain can carry a start language it does not
+// serve - so it is spelled out rather than left to be guessed.
+$body .= '<p class="help-block">' . rex_i18n::msg('domain_settings_fallback_chain') . '</p>';
+
+if (count($allDomains) > 1) {
+    $rows = '';
+    foreach ($allDomains as $domainId => $domainName) {
+        $effective = DomainSettings::getFallbackClangId($domainId);
+        $rows .= '<tr><td>' . rex_escape($domainName) . '</td>'
+            . '<td>' . rex_escape(rex_clang::get($effective)?->getName() ?? (string) $effective) . '</td></tr>';
+    }
+
+    $body .= '<table class="table table-condensed domain-settings-fallback-list">'
+        . '<thead><tr>'
+        . '<th>' . rex_i18n::msg('domain_settings_domain') . '</th>'
+        . '<th>' . rex_i18n::msg('domain_settings_fallback_effective') . '</th>'
+        . '</tr></thead><tbody>' . $rows . '</tbody></table>';
+}
+
 $fragment = new rex_fragment();
 $fragment->setVar('title', rex_i18n::msg('domain_settings_fallback_title'), false);
 $fragment->setVar('body', $body, false);
