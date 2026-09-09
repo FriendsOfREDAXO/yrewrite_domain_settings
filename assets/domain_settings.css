@@ -245,6 +245,9 @@ body.rex-theme-dark .domain-settings-section-tabs > li.active > a.btn:focus {
 
 .domain-settings-context .domain-settings-languages {
     flex: 0 0 auto;
+    /* Right-aligned on its own: with a single domain there is no select to
+       push it over, and it would sit at the left edge. */
+    margin-left: auto;
 }
 
 .domain-settings-context .rex-nav-language {
