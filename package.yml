@@ -33,7 +33,7 @@ requires:
 
 installer_ignore:
     - .git
-    - .travis.yml
+    - .github
     - .gitignore
     - .php-cs-fixer.dist.php
     - .php-cs-fixer.cache

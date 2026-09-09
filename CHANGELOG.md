@@ -5,69 +5,88 @@ Alle nennenswerten Änderungen an diesem Addon.
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
-## [Unveröffentlicht] — 0.1.0-dev
+## [2.4.0] — unveröffentlicht
 
-Erste Entwicklungsfassung. Kern und Oberfläche funktionieren und sind
-getestet; die API kann sich bis 1.0 noch ändern.
+Das größte Update des Addons: Werte sind ab jetzt **je Sprache** pflegbar und
+lassen sich in **Bereiche** aufteilen, die Pflege bekommt eine eigene Seite
+statt der rohen YForm-Datenansicht, und der Lesepfad läuft über einen Cache.
+
+**Bestehender Code läuft unverändert weiter.** Die API von 2.3.0 ist
+vollständig erhalten, inklusive Rückgabetypen und Null-Fällen; acht Prüfungen
+in der Suite `legacy` halten das fest. Details im
+[README](README.md#umstieg-von-230).
 
 ### Hinzugefügt
 
-- **Speicher**: eine YForm-Tabelle je Bereich, eine Zeile je Domain und
-  Sprache. Felder werden im YForm Table Manager gepflegt, ohne
-  Namenskonvention oder Präfix.
-- **Lese-API** `Globals::get()` / `Globals::getAll()` mit Fallback auf die
-  Fallback-Sprache. Funktioniert ohne aktuellen Artikel und ohne yrewrite,
-  also auch in Cronjobs, Console-Commands und E-Mail-Templates.
-- **Datei-Cache** über alle Domains und Sprachen, lazy beim ersten Zugriff
-  geladen. Ein Request, der Werte liest, kostet keine Query.
-- **`REX_GLOBALS[key="…"]`** für Templates und Module, standardmäßig
-  escaped; `output="html"` als bewusster Opt-out.
-- **Bereiche**: je Bereich eine eigene YForm-Tabelle und damit YForms eigene
-  Tabellenberechtigung. Anlegen, umbenennen und löschen unter Einstellungen;
-  jeder Bereich erscheint als Reiter in der Backend-Navigation.
-- **Rechte**: Sprachen über den Core-ComplexPerm `clang`, Domains über einen
-  eigenen ComplexPerm `globals_domains`, Bereiche über YForms
-  `yform_manager_table_edit`.
+- **Sprachen**: eine Zeile je Domain **und** Sprache. Nicht gefüllte Werte
+  erben aus der Fallback-Sprache — derselbe Mechanismus deckt „noch nicht
+  übersetzt" und „in allen Sprachen gleich" ab. Löst [#30][i30].
+- **Bereiche**: die Daten lassen sich auf mehrere YForm-Tabellen aufteilen
+  (`rex_yrewrite_domain_settings_footer` …). Damit greift YForms eigene
+  Tabellenberechtigung, und jeder Bereich erscheint als Reiter.
+- **Eigene Pflegeseite** mit Domain- und Sprachumschaltung, Anzeige geerbter
+  Werte und aufklappbaren Feldgruppen (YForms `fieldset`, Zustand je
+  Benutzer gespeichert). Die YForm-Datenansicht der Tabelle wird versteckt.
+- **Domain-Rechte greifen auf die Daten**, nicht nur auf die Oberfläche: der
+  ComplexPerm `yrewrite_domains` filtert, was zu sehen und zu ändern ist.
+  Löst [#28][i28].
+- **`DomainSettings::get()` / `::getAll()`** als neue API mit Standardwert,
+  optionaler Domain und Sprache. Funktioniert ohne aktuellen Artikel, also
+  auch in Cronjobs, Console-Commands und E-Mail-Templates.
+- **`REX_DOMAIN_VALUE[key="…"]`** — die escapende Variante von
+  `REX_DOMAIN_SETTING`, mit `output="html"` als bewusstem Opt-out.
+- **Datei-Cache** über alle Domains und Sprachen, lazy beim ersten Zugriff.
+  Ein Request, der Werte liest, kostet keine Query.
 - **Werte übertragen** zwischen Domains und Sprachen, wahlweise für einen
   Bereich oder alle.
-- **REST-API** über das api-Addon, sofern installiert: `GET /api/globals`,
-  `GET|PATCH /api/globals/<bereich>`, je Bereich eigene Scopes für Lesen und
-  Schreiben. Liefert aufgelöste Werte statt roher Zeilen.
-- **IDE-Unterstützung**: `console globals:ide-helper` schreibt eine
+- **REST-API** über das api-Addon, sofern installiert: `GET
+  /api/domain-settings`, `GET|PATCH /api/domain-settings/<bereich>`, je
+  Bereich eigene Scopes für Lesen und Schreiben.
+- **IDE-Unterstützung**: `console domain-settings:ide-helper` schreibt eine
   `.phpstorm.meta.php` mit allen Feldnamen; wird bei `cache:clear`
   automatisch aufgefrischt.
-- **Aufklappbare Feldgruppen** über YForms `fieldset`, Zustand pro Benutzer
-  gespeichert.
+- **Medienschutz**: ein verwendetes Bild lässt sich nicht mehr aus dem
+  Medienpool löschen (`MEDIA_IS_IN_USE`).
 - **Schutz vor Datenverlust**: Sprachwechsel mit ungespeicherten Änderungen
-  fragt nach (eigener Dialog), `beforeunload` als Netz für Zurück-Button und
-  Tab schließen.
-- **Medienschutz**: ein verwendetes Bild lässt sich nicht aus dem Medienpool
-  löschen (`MEDIA_IS_IN_USE`).
-- **Debug-Platzhalter**: unbekannte Schlüssel liefern im Debug-Modus
-  `{{ key }}` statt still leer zu bleiben.
-- **Tests**: `console globals:test`, 26 Prüfungen in vier Suiten (Vererbung,
-  Bereiche, Cache, Sicherheitsregressionen). Console-Command statt PHPUnit,
-  dem Vorbild von YForm folgend. Testdaten in einem eigenen Bereich mit
-  eigener Domain-ID; redaktionelle Inhalte werden nicht angefasst.
+  fragt nach; `beforeunload` als Netz für Zurück-Button und Tab schließen.
+- **Debug-Platzhalter**: unbekannte Schlüssel liefern über die neue API im
+  Debug-Modus `{{ key }}` statt still leer zu bleiben. Die alte API gibt
+  weiterhin `null` zurück.
+- **Tests**: `console domain-settings:test`, 34 Prüfungen in fünf Suiten
+  (Vererbung, Bereiche, Cache, Sicherheitsregressionen, alte API).
+  Console-Command statt PHPUnit, dem Vorbild von YForm folgend. Testdaten in
+  einem eigenen Bereich mit eigener Domain-ID; redaktionelle Inhalte werden
+  nicht angefasst.
 
 ### Behoben
 
-Während der Entwicklung gefunden, hier festgehalten, weil die Ursachen nicht
-offensichtlich waren:
+- **Auf dem Startartikel einer Domain kamen keine Werte an.** Die Domain
+  wurde über den aktuellen Artikel ermittelt statt über
+  `rex_yrewrite::getCurrentDomain()`. Die Hilfskategorie „Startseite", die
+  man sich dafür anlegen musste, ist damit überflüssig. [#35][i35], [#36][i36]
+- **Fatal Error ohne aktuellen Artikel**: `getValue()` rief `getId()` auf
+  `null` auf, etwa in der Console oder einem Cronjob. Jetzt kommt `null`.
+- **Die Domain wurde einmal je Request zwischengespeichert** und konnte
+  veralten. Der Singleton hält keinen Domain-Zustand mehr. [#36][i36]
+- `getAllowedDomains()` lief ohne angemeldeten Benutzer in einen Fatal Error.
 
-- Speichern in einer Sprache überschrieb eine andere. YForm postet auf ein
-  blankes `index.php`; ohne `form_action_query_params` erreichten
-  `domain_id`/`clang_id` den Request nicht und fielen auf ihre Standardwerte
-  zurück.
-- Ein Benutzer mit `globals[]`, aber ohne Domain-Berechtigung, fiel über
-  `array_key_first([])` auf Domain 0 durch und hatte dort Schreibzugriff.
-- `REX_GLOBALS` gab den rohen Datenbankwert aus — ein Redakteur konnte damit
-  Markup auf jede Seite bringen, die den Wert liest.
-- Sprach-Tabs blieben im Dark Mode weiß: be_style stylt native
-  Bootstrap-Tabs bewusst nicht, nur die Variante mit `btn`-Klassen.
-- Ein ungültiger CSRF-Token führte kommentarlos zu gar nichts.
-- Das Umbenennen-Formular stand als `<form>` in einem `<tr>` — ungültiges
-  Markup, das Browser entfernen; es hätte nie abgesendet.
+### Geändert
+
+- Anforderungen: REDAXO ^5.17, PHP ^8.1, YForm ^5.0 (vorher REDAXO ^5.5,
+  PHP >= 5.6, YForm > 3 < 6). Installationen darunter bekommen das Update
+  nicht angeboten und bleiben auf 2.3.0.
+- Die Tabelle ist in der YForm-Tabellenliste versteckt; gepflegt wird auf der
+  Seite des Addons. Felder werden weiterhin im Table Manager angelegt.
+- Das Formularfeld `domain_id` und der `unique`-Validator darauf entfallen —
+  die Domain wählt die Seite. Die Spalte bleibt erhalten.
+
+### Migration
+
+Das Update wandelt die Tabelle beim Einspielen um: `clang_id` ergänzen
+(vorhandene Zeilen auf die Startsprache), `domain_id` auf `int`, alten
+Validator entfernen, Unique-Index auf `(domain_id, clang_id)`.
+Datensatz-IDs bleiben unverändert. Gibt es mehrere Datensätze für dieselbe
+Domain, bricht das Update ab und nennt sie, statt auf halbem Weg zu scheitern.
 
 ### Bekannte Einschränkungen
 
@@ -78,3 +97,14 @@ offensichtlich waren:
   den Rollen zurück. Folgenlos; der YForm Table Manager verhält sich genauso.
 - Der Wortlaut der Browserwarnung beim Verlassen der Seite lässt sich nicht
   beeinflussen — Browser ignorieren eigenen Text seit etwa 2016.
+
+## Ältere Versionen
+
+Bis 2.3.0 wurden Änderungen nur in den
+[Releases](https://github.com/FriendsOfREDAXO/yrewrite_domain_settings/releases)
+festgehalten.
+
+[i28]: https://github.com/FriendsOfREDAXO/yrewrite_domain_settings/issues/28
+[i30]: https://github.com/FriendsOfREDAXO/yrewrite_domain_settings/issues/30
+[i35]: https://github.com/FriendsOfREDAXO/yrewrite_domain_settings/issues/35
+[i36]: https://github.com/FriendsOfREDAXO/yrewrite_domain_settings/pull/36

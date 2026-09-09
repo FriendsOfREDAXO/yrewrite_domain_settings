@@ -1,78 +1,315 @@
-# YRewrite Domain-Einstellungen für REDAXO 5
+# YRewrite Domain Settings
 
-REDAXO5-Addon zum Verwalten zusätzlicher Informationen je YRewrite-Domain.
+Zusatz- und Metainformationen je Domain — Footer, Kontaktdaten, Logo,
+Profil-Links. Auf Basis von YForm, ohne eigene Feldtypen-Welt.
 
-## Features
+Seit **2.4.0** sind die Werte zusätzlich **je Sprache** pflegbar und lassen
+sich in **Bereiche** aufteilen. Bestehender Code läuft unverändert weiter —
+siehe [Umstieg von 2.3.0](#umstieg-von-230).
 
-- Einfache Verwaltung von Zusatz- und Metainformationen pro Domain
-- Basiert auf YForm - Zugriff durch YOrm und eigene Erweiterung möglich
+## Idee
 
-## Installation
+Eine ganz normale YForm-Tabelle mit **einer Zeile je Domain und Sprache**.
+Felder legst du im YForm Table Manager an, mit dem vollen Funktionsumfang von
+YForm. Es gibt keine Namenskonvention, kein Präfix und keine Suffixe: eine neue
+Sprache ist ein `INSERT`, kein `ALTER TABLE`.
 
-1. Über Installer laden oder Zip-Datei im AddOn-Ordner entpacken, der Ordner muss „yrewrite_domain_settings“ heißen.
-2. AddOn installieren und aktivieren.
-3. Rechte für Rollen anpassen
+**Bereiche** teilen die Daten auf — Header, Footer, Kontakt. Jeder Bereich ist
+eine eigene YForm-Tabelle (`rex_yrewrite_domain_settings`, `rex_yrewrite_domain_settings_footer`, …). Das ist
+Absicht: Dadurch greift YForms eigene Tabellenberechtigung, und jeder neue
+Bereich erscheint von selbst im Rollen-Formular unter „YForm: Tabellen
+bearbeiten". Wer den Footer nicht ändern darf, sieht den Bereich nicht.
 
-## Konfiguration
+Die Bereiche teilen sich **einen Schlüsselraum**: `DomainSettings::get('footer_text')`
+findet den Wert, egal in welchem Bereich das Feld liegt. Der Zugriff im
+Template ändert sich also nicht, wenn du ein Feld später in einen anderen
+Bereich verschiebst. Der Preis: Ein Feldname darf nur einmal vergeben werden;
+kommt er in zwei Bereichen vor, landet eine Warnung im `system.log`.
 
-Das Addon installiert die YFORM-Tabelle "yrewrite_domain_settings". In dieser Tabelle kann eine Domain verknüpft werden. Die Tabelle kann um beliebige Felder ergänzt werden.
+Sprachneutrale Werte wie Logo oder Adresse brauchen keine Sonderbehandlung —
+sie werden in der Fallback-Sprache gepflegt und von allen anderen geerbt. Das
+ist derselbe Mechanismus, der auch „noch nicht übersetzt" abdeckt.
 
-## Beispiel-Code Frontend
-Aufruf im Frontend: 
+## Umstieg von 2.3.0
 
-Per PHP
+Das Update ist ein Klick. Es gibt **nichts anzupassen** — weder im Template
+noch im Modul noch in eigenen Klassen.
+
+### Was gleich bleibt
+
+| | |
+|---|---|
+| `yrewrite_domain_settings::getValue($key)` | liefert denselben Wert wie vorher |
+| `yrewrite_domain_settings::getValue()` | liefert weiterhin die ganze Zeile, `id` und `domain_id` inklusive |
+| `yrewrite_domain_settings::getAllowedDomains()` | unverändert, gleiche Array-Form |
+| `REX_DOMAIN_SETTING[key=…]` | unverändert, weiterhin **ohne** Escaping |
+| Rolle → Domains | derselbe ComplexPerm `yrewrite_domains`, vergebene Rechte bleiben |
+| Deine Felder | bleiben, wo sie sind, samt Inhalt und Datensatz-ID |
+
+Alle sechs Punkte sind als Prüfungen hinterlegt und laufen bei jedem
+`domain-settings:test` mit.
+
+### Was das Update an der Tabelle tut
+
+1. Spalte `clang_id` ergänzen; vorhandene Zeilen bekommen die Startsprache.
+2. `domain_id` von `text` auf `int` ziehen.
+3. Das Formularfeld `domain_id` entfernen — die Domain wählt ab jetzt die
+   Seite, nicht das Formular. Die **Spalte bleibt**.
+4. Den `unique`-Validator auf `domain_id` entfernen; er würde die zweite
+   Sprache derselben Domain abweisen.
+5. Unique-Index auf `(domain_id, clang_id)` setzen.
+
+Datensatz-IDs bleiben dabei unangetastet — Fremdtabellen, die darauf
+verweisen, funktionieren weiter. Gibt es mehrere Datensätze für dieselbe
+Domain, bricht das Update ab und sagt welche; aufräumen und erneut starten.
+
+### Was sich verhält wie vorher — nur richtig
+
+Die Domain wird jetzt über `rex_yrewrite::getCurrentDomain()` ermittelt statt
+über den aktuellen Artikel. Damit liefert das Addon endlich auch auf dem
+**Startartikel** einer Domain Werte ([#35][i35], [#36][i36]) — die
+Hilfskategorie „Startseite", die man sich dafür anlegen musste, kann weg. Und
+ohne aktuellen Artikel — im Cronjob, in der Console — gibt es statt eines
+Fatal Errors schlicht `null`.
+
+### Einsprachige Installationen
+
+Für sie ändert sich gar nichts: Alle Werte liegen in der Startsprache, und
+genau die werden ausgeliefert.
+
+### Mehrsprachige Installationen
+
+Alle Sprachen erben zunächst die vorhandenen Werte. Wo etwas übersetzt werden
+soll, trägt man es in der jeweiligen Sprache ein — der Rest bleibt vererbt.
+Ein Feld, das in allen Sprachen gleich ist (Logo, Adresse), pflegt man
+weiterhin nur einmal.
+
+### Escaping: die alte und die neue Variable
+
+`REX_DOMAIN_SETTING` gibt den Wert **roh** aus, wie seit jeher — Templates
+speichern dort Markup, etwa einen Adressblock mit `<br>`. Neu ist
+`REX_DOMAIN_VALUE`, das standardmäßig escaped und mit `output="html"` bewusst
+nicht. Für neuen Code ist die neue Variable die richtige Wahl; die alte bleibt
+erhalten und wird nicht entfernt.
+
+[i35]: https://github.com/FriendsOfREDAXO/yrewrite_domain_settings/issues/35
+[i36]: https://github.com/FriendsOfREDAXO/yrewrite_domain_settings/pull/36
+
+## Verwendung im Frontend
 
 ```php
-yrewrite_domain_settings::getValue($key)
-```
-* Wird kein $key übergeben, gibt die Methode getValue() alle Werte zurück.
-* $key  = Spaltenname in der Tabelle
+use FriendsOfRedaxo\DomainSettings\DomainSettings;
 
-Per REX_VAR
-
-```html
-REX_DOMAIN_SETTING[key]
-```
-* key  = Spaltenname in der Tabelle
-
-## Rechte setzen / auslesen
-
-In der Rollenverwaltung kann eine Beschränkung auf bestimmte Domains vorgenommen werden.
-
-Auslesen kann man diese in Templates oder Modulen mit:
-
-```php
-yrewrite_domain_settings::getAllowedDomains();
+DomainSettings::get('footer_text');               // aktuelle Domain und Sprache
+DomainSettings::get('footer_text', 'kein Text');  // mit Standardwert
+DomainSettings::get('footer_text', null, 2, 1);   // explizit Domain 2, Sprache 1
+DomainSettings::getAll();                         // alles, für Fragmente
 ```
 
-Es wird ein Array mit den erlaubten Domains zurückgegeben.
+In Templates und Modulen auch als Variable:
 
+```
+REX_DOMAIN_VALUE[key="footer_text"]
+REX_DOMAIN_VALUE[key="footer_html" output="html"]
+```
 
+`REX_DOMAIN_VALUE` **escapt die Ausgabe standardmäßig** — wie `REX_VALUE` im Core.
+Wer bewusst HTML ausgeben will, setzt `output="html"`. Die PHP-API
+`DomainSettings::get()` liefert dagegen den rohen Wert; dort muss der Aufrufer selbst
+`rex_escape()` einsetzen.
 
+**Fallback:** Ein leerer Wert wird aus der Fallback-Sprache derselben Domain
+übernommen. Leer heißt `''` oder `null` — aber **nicht** `'0'`, damit sich eine
+Checkbox in einer einzelnen Sprache abschalten lässt. Domains erben *nicht*
+voneinander: jede Domain ist eigenständig.
+
+Existiert der Schlüssel nirgends, kommt `null` zurück (bzw. der übergebene
+Standardwert). Läuft REDAXO im Debug-Modus, stattdessen ein sichtbares
+`{{ key }}` — so fallen Tippfehler beim Bauen auf, statt still eine leere
+Stelle im Frontend zu hinterlassen.
+
+Die API braucht weder einen aktuellen Artikel noch yrewrite und funktioniert
+deshalb auch in Cronjobs, Console-Commands und E-Mail-Templates.
+
+## Bedienung
+
+Jeder Bereich ist ein eigener Reiter in der Backend-Navigation. Darin wählst du
+die Domain (nur sichtbar, wenn yrewrite mehr als eine kennt) und die Sprache.
+Über dem Formular steht, welche Felder gerade aus der Fallback-Sprache
+übernommen werden.
+
+Unter **Einstellungen** liegen die Bereichsverwaltung, das Übertragen von
+Werten zwischen Domains und Sprachen sowie die Fallback-Sprache:
+Bereiche anlegen, umbenennen und in den YForm Table Manager springen. Ein
+`fieldset`-Feld wird dort zu einer aufklappbaren Gruppe; ihr Zustand bleibt pro
+Benutzer gespeichert.
+
+**Werte übertragen** kopiert alles Gepflegte von einer Domain oder Sprache auf
+eine andere — wahlweise für einen Bereich oder für alle. Gedacht zum Aufsetzen
+einer neuen Domain; vorhandene Werte im Ziel werden überschrieben, deshalb mit
+Rückfrage. Quelle und Ziel müssen Domains und Sprachen sein, die der Benutzer
+ohnehin bearbeiten darf.
+
+Ein Bereich lässt sich jederzeit umbenennen — geändert wird nur die
+Beschriftung. Die Tabelle behält ihren Namen, und das ist Absicht: An ihm
+hängen die Berechtigungen und der Reiter-Link. Würde die Tabelle mitwandern,
+verlöre jede Rolle ihre Zuweisung.
+
+**Löschen** entfernt Felddefinitionen, YForm-Registrierung und die Tabelle
+samt Inhalt — endgültig, mit Rückfrage. Der Hauptbereich lässt sich nicht
+löschen, das Addon bräuchte sonst seine Ablage neu. Bereits vergebene
+Berechtigungen bleiben als tote Einträge in den Rollen zurück; das ist
+folgenlos und passiert im YForm Table Manager genauso.
+
+Sprachen sind getrennte Datensätze: Werte in einer Sprache zu ändern lässt die
+anderen unberührt. Wer die Sprache wechselt, ohne zu speichern, bekommt einen
+Dialog mit drei Optionen: speichern und wechseln, verwerfen und wechseln, oder
+hier bleiben. Für alle anderen Wege aus der Seite (Zurück-Button, Tab
+schließen) greift zusätzlich die Standardwarnung des Browsers — deren Wortlaut
+lässt sich nicht beeinflussen, den geben die Browser seit Jahren fest vor.
+
+## Rechte
+
+- `yrewrite_domain_settings[]` — darf die Werte bearbeiten
+- Sprachen über die REDAXO-eigene Sprachrechte-Verwaltung (`clang`); ein
+  Redakteur sieht nur die Tabs seiner Sprachen
+- Domains über `yrewrite_domains` im Benutzerprofil. Ohne Berechtigung für
+  mindestens eine Domain bleibt die Seite gesperrt
+- Bereiche über YForms `yform_manager_table_edit` — dieselbe Berechtigung, die
+  auch den Table Manager steuert. Ohne Zugriff auf mindestens einen Bereich
+  bleibt die Seite gesperrt
+
+## IDE-Unterstützung
+
+```bash
+php redaxo/bin/console domain-settings:ide-helper
+```
+
+Schreibt eine `.phpstorm.meta.php` mit allen Feldnamen. PhpStorm vervollständigt
+danach den Schlüssel in `DomainSettings::get('…')`, statt ihn als blinden String zu
+behandeln — dasselbe Verfahren, das der REDAXO-Core für seine eigenen APIs
+nutzt.
+
+Die Datei wird bei jedem `cache:clear` automatisch aufgefrischt; der Befehl ist
+nur nötig, wenn es sofort passieren soll.
+
+## REST-API (optional)
+
+Ist das [api-Addon](https://github.com/FriendsOfREDAXO/api) installiert, stehen
+die Werte über HTTP bereit — mit **aufgelöster Fallback-Kette**, also fertigen
+Werten statt roher Zeilen:
+
+```
+GET   /api/domain-settings                      alle Bereiche
+GET   /api/domain-settings/<bereich>            ein Bereich
+PATCH /api/domain-settings/<bereich>            Werte ändern
+      ?domain_id=1&clang_id=2           beides optional
+```
+
+```json
+{
+  "data": { "company_slogan": "Wir bauen Sägen", "logo": "logo.svg" },
+  "meta": { "domain_id": 1, "clang_id": 2 }
+}
+```
+
+Ohne Parameter gilt die erste Domain und die Startsprache.
+
+Ein `PATCH` ändert nur die Felder, die im Body stehen — der Rest bleibt
+unangetastet. Unbekannte Feldnamen werden ignoriert und mit einer Liste der
+gültigen beantwortet. Gespeichert wird über den YForm-Datensatz, also laufen
+die Validatoren der Tabelle; schlägt einer an, kommt `422` mit den Meldungen
+zurück.
+
+**Rechte pro Bereich, getrennt nach Lesen und Schreiben:** Jeder Bereich
+bekommt eigene Scopes (`domain-settings/read/<bereich>`, `domain-settings/write/<bereich>`),
+dazu `domain-settings/read` für den Sammel-Endpunkt. Ein Token zum Auslesen kann also
+nichts verändern. Ein Token lässt sich also auf einzelne Bereiche beschränken —
+und es bleiben eine Handvoll Scopes, auch wenn es 150 Felder gibt. Die Vergabe
+läuft im api-Addon unter **API → Token**; dieses Addon braucht dafür keine
+eigenen Einstellungen.
+
+Die Routen entstehen automatisch aus den vorhandenen Bereichen. Legst du einen
+Bereich an oder benennst ihn um, ist die Route beim nächsten Aufruf da. Wird
+das api-Addon erst später installiert, erscheinen die Routen ebenfalls von
+selbst — das Addon muss dafür nicht neu installiert werden.
+
+## Performance
+
+Alle Werte über alle Domains und Sprachen liegen in einer Cache-Datei, die beim
+ersten `get()` gelesen wird — nicht beim Booten. Requests, die keinen Wert
+abfragen, kosten nichts; das Füllen des Caches braucht eine Query je Bereich. Der Cache
+wird über YForms eigene Datenereignisse verworfen, eine Änderung direkt im
+Table Manager wirkt also genauso.
+
+## Bekannte Einschränkung
+
+Wird im Table Manager ein Feld gelöscht oder umbenannt, fällt der Wert-Cache
+nicht automatisch — YForm bietet für Schemaänderungen keinen Extension Point,
+`YFORM_GENERATE` feuert bei jedem Formularaufbau und wäre das falsche Signal.
+Bis zum nächsten Speichern liefert `DomainSettings::get()` deshalb noch den alten
+Spaltensatz. Ein `cache:clear` räumt das auf.
+
+## Anforderungen
+
+- REDAXO ^5.17
+- PHP ^8.1
+- YForm ^5.0
+- yrewrite ^2.5
+
+Ist yrewrite deaktiviert oder gibt es noch keine Domain, läuft alles auf
+Domain 0 — das Addon funktioniert dann wie eine reine Sammlung globaler Werte.
+
+## Weiterführend
+
+| Datei | Inhalt |
+|---|---|
+| [CHANGELOG.md](CHANGELOG.md) | Was drin ist, was behoben wurde, bekannte Einschränkungen |
+| [TODO.md](TODO.md) | Offene Punkte, nach Wichtigkeit sortiert |
+| [docs/development.md](docs/development.md) | Testinstanz, Zugänge, Fallstricke beim Testen |
+| [docs/migration-global-settings.md](docs/migration-global-settings.md) | Was eine Übernahme aus global_settings bedeuten würde |
+
+## Entwicklung
+
+```bash
+composer install
+composer cs-dry    # prüfen
+composer cs-fix    # korrigieren
+```
+
+Nach Änderungen in `assets/`: `php redaxo/bin/console assets:sync`.
+
+### Tests
+
+```bash
+php redaxo/bin/console domain-settings:test            # alles
+php redaxo/bin/console domain-settings:test fallback   # eine Suite
+```
+
+Console-Command statt PHPUnit — wie YForm, dessen Test-README es so
+formuliert: „Tests run as REDAXO console commands. PHPUnit is **not**
+required." Die Prüfungen brauchen `rex_clang`, den Datei-Cache, YForm-Tabellen
+und `rex_var::parse()`; das zu mocken wäre mehr Arbeit als Nutzen.
+
+Die Testdaten liegen in einem eigenen Bereich, der um den Lauf herum angelegt
+und wieder gelöscht wird, und benutzen eine Domain-ID weit außerhalb dessen,
+was yrewrite vergibt. Redaktionelle Inhalte werden nicht angefasst — geprüft
+durch Vergleich der Tabellen vor und nach dem Lauf.
+
+Suiten: `fallback` (Vererbungskette), `sections` (anlegen, umbenennen,
+löschen), `cache` (Invalidierung), `security` (Regressionen der im Review
+gefundenen Lücken), `legacy` (die API von 2.3.0).
 
 ## Bugtracker
 
-Du hast einen Fehler gefunden oder ein nettes Feature parat? [Lege bitte ein Issue an](https://github.com/FriendsOfREDAXO/yrewrite_domain_settings/)
+[Issue anlegen](https://github.com/FriendsOfREDAXO/yrewrite_domain_settings/issues)
+
+## Autoren
+
+**Friends Of REDAXO** — <https://github.com/FriendsOfREDAXO>
+
+Projekt-Lead und First Release: [Daniel Steffen](https://github.com/novinet-dsteffen)
 
 ## Lizenz
 
-siehe [LICENSE.md](https://github.com/FriendsOfREDAXO/quick_navigation/blob/master/LICENSE.md)
-
-
-## Autor
-
-**Friends Of REDAXO**
-
-* http://www.redaxo.org
-* https://github.com/FriendsOfREDAXO
-
-**Projekt-Lead**
-
-[Daniel Steffen](https://github.com/novinet-dsteffen)
-
-
-**First Release**
-
-[Daniel Steffen](https://github.com/novinet-dsteffen)
-
-
+MIT — siehe [LICENSE](LICENSE)
