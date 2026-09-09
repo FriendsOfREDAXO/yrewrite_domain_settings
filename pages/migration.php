@@ -56,7 +56,14 @@ $domains = Backend::getDomains();
 $clangs = Backend::getEditableClangs();
 $sections = Backend::getSections();
 
-if (count($domains) > 1 || count($clangs) > 1) {
+// With one domain and one language there is nothing to copy between - say so
+// rather than leaving the page empty, since it is in the navigation either way.
+if (count($domains) < 2 && count($clangs) < 2) {
+    $fragment = new rex_fragment();
+    $fragment->setVar('title', rex_i18n::msg('domain_settings_copy_title'), false);
+    $fragment->setVar('body', rex_view::info(rex_i18n::msg('domain_settings_copy_nothing_to_do')), false);
+    echo $fragment->parse('core/page/section.php');
+} else {
     $pick = static function (string $name, array $options, string $label): string {
         $select = new rex_select();
         $select->setName($name);

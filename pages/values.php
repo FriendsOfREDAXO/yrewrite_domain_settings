@@ -200,7 +200,7 @@ echo '
       </div>
       <div class="modal-body"><p>' . rex_i18n::msg('domain_settings_unsaved_body') . '</p></div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-default" data-dismiss="modal">'
+        <button type="button" class="btn btn-default pull-left" data-dismiss="modal">'
             . rex_i18n::msg('domain_settings_unsaved_cancel') . '</button>
         <button type="button" class="btn btn-default" data-domain-settings-action="discard">'
             . rex_i18n::msg('domain_settings_unsaved_discard') . '</button>

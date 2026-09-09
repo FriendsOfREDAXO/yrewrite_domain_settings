@@ -7,6 +7,11 @@ Seit **2.4.0** sind die Werte zusätzlich **je Sprache** pflegbar und lassen
 sich in **Tabs** aufteilen. Bestehender Code läuft unverändert weiter —
 siehe [Umstieg von 2.3.0](#umstieg-von-230).
 
+**2.5.0** baut die Oberfläche um: Domain, Tab und Sprache stehen jetzt
+gemeinsam auf einer Seite, und ein Tab lässt sich einzelnen Domains zuordnen.
+An den Daten und an der API ändert sich dabei nichts — nur die Backend-URLs
+der Tabs, siehe [CHANGELOG](CHANGELOG.md).
+
 ## Idee
 
 Eine ganz normale YForm-Tabelle mit **einer Zeile je Domain und Sprache**.
@@ -24,7 +29,10 @@ Die Tabs teilen sich **einen Schlüsselraum**: `DomainSettings::get('footer_text
 findet den Wert, egal in welchem Tab das Feld liegt. Der Zugriff im
 Template ändert sich also nicht, wenn du ein Feld später in einen anderen
 Tab verschiebst. Der Preis: Ein Feldname darf nur einmal vergeben werden;
-kommt er in zwei Tabs vor, landet eine Warnung im `system.log`.
+kommt er in zwei Tabs vor, landet eine Warnung im `system.log`. Das gilt nur
+für Tabs, die sich eine Domain teilen — zwei Tabs, die auf verschiedenen
+Domains angeboten werden, antworten nie für dieselbe Domain und dürfen
+denselben Feldnamen führen.
 
 **Welche Sprachen eine Domain hat, sagt yrewrite**, nicht der REDAXO-Kern:
 Führt eine Domain nur Deutsch und Englisch und eine zweite zusätzlich
@@ -148,26 +156,51 @@ deshalb auch in Cronjobs, Console-Commands und E-Mail-Templates.
 
 ## Bedienung
 
-Jeder Tab ist ein eigener Reiter in der Backend-Navigation. Darin wählst du
-die Domain (nur sichtbar, wenn yrewrite mehr als eine kennt) und die Sprache.
-Über dem Formular steht, welche Felder gerade aus der Fallback-Sprache
-übernommen werden.
+Die Navigation hat vier feste Punkte: **Daten**, **Einstellungen**,
+**Migration** und **Hilfe**. Gepflegt wird auf **Daten**; die drei anderen
+sind Administratoren vorbehalten.
 
-Unter **Einstellungen** liegen drei Panels: **Tabs** zum Anlegen, Umbenennen
-und Löschen samt Sprung in den YForm Table Manager, **Fallback** für die
-Sprache, aus der leere Werte bedient werden, und **Daten übertragen**. Ein
-`fieldset`-Feld wird im Formular zu einer aufklappbaren Gruppe; ihr Zustand
+Oben auf der Datenseite steht die Kontextzeile — links die Domain (nur
+sichtbar, wenn yrewrite mehr als eine kennt), rechts die Sprache, umgeschaltet
+wie auf der Struktur-Seite und ab vier Sprachen als Dropdown. Darunter liegen
+die Tabs als Reiter, darunter das Formular.
+
+Domain und Sprache sind der Kontext und bleiben in der Session: Wer die Seite
+verlässt und zurückkommt, ist wieder dort, wo er aufgehört hat. Der Tab steht
+dagegen als `section=<slug>` in der URL — er ist, wo man auf der Seite ist,
+nicht das, worum es geht. Welche Sprachen zur Wahl stehen, entscheidet
+yrewrite je Domain.
+
+Ist die gewählte Sprache nicht die Fallback-Sprache, steht über dem Formular,
+dass leere Felder von dort erben. Der Hinweis nennt die Regel und nicht die
+gerade betroffenen Felder: Er gilt auch dann, wenn zufällig kein Feld leer ist,
+und ein Hinweis, der kommt und geht, ist einer, auf den sich niemand verlässt.
+
+Ein `fieldset`-Feld wird im Formular zu einer aufklappbaren Gruppe; ihr Zustand
 bleibt pro Benutzer gespeichert.
 
-Aus dem Table Manager führt ein Link zurück — er erscheint dort, wo die
-bearbeitete Tabelle zu diesem Addon gehört. Umgekehrt steht Administratoren
-neben dem Speichern-Button der direkte Weg zu den Feldern.
+Sprachen sind getrennte Datensätze: Werte in einer Sprache zu ändern lässt die
+anderen unberührt. Wer die Seite mit ungespeicherten Änderungen verlässt —
+anderer Tab, andere Domain, Felder bearbeiten, Einstellungen, Hilfe —, bekommt
+einen Dialog mit drei Optionen: speichern und weiter, verwerfen und weiter,
+oder hier bleiben. Für die Wege, die keine Links sind (Zurück-Button, Tab
+schließen), greift zusätzlich die Standardwarnung des Browsers — deren Wortlaut
+lässt sich nicht beeinflussen, den geben die Browser seit Jahren fest vor.
 
-**Daten übertragen** kopiert alles Gepflegte von einer Domain oder Sprache auf
-eine andere — wahlweise für einen Tab oder für alle. Gedacht zum Aufsetzen
-einer neuen Domain; vorhandene Werte im Ziel werden überschrieben, deshalb mit
-Rückfrage. Quelle und Ziel müssen Domains und Sprachen sein, die der Benutzer
-ohnehin bearbeiten darf.
+### Einstellungen
+
+Drei Panels: **Neuer Tab** zum Anlegen, **Vorhandene Tabs** zum Umbenennen,
+Zuordnen und Löschen samt Sprung in den YForm Table Manager, und **Fallback**
+für die Sprache, aus der leere Werte bedient werden.
+
+Jeder Tab lässt sich **einer oder mehreren Domains zuordnen** — schon beim
+Anlegen und später in der Liste. Das ist ein reiner Ansichtsfilter: Er
+bestimmt, wo ein Tab zur Bearbeitung angeboten wird, und sonst nichts.
+Bereits gepflegte Werte bleiben in der Tabelle und werden im Frontend weiter
+ausgeliefert; nimmt man einem Tab eine Domain weg, auf der Werte stehen, sagt
+das Speichern es dazu. Nichts gewählt heißt alle Domains, alle gewählt wird
+als „keine Einschränkung" gespeichert — sonst verlöre ein Tab still jede
+später angelegte Domain.
 
 Ein Tab lässt sich jederzeit umbenennen — geändert wird nur die
 Beschriftung. Die Tabelle behält ihren Namen, und das ist Absicht: An ihm
@@ -175,17 +208,35 @@ hängen die Berechtigungen und der Reiter-Link. Würde die Tabelle mitwandern,
 verlöre jede Rolle ihre Zuweisung.
 
 **Löschen** entfernt Felddefinitionen, YForm-Registrierung und die Tabelle
-samt Inhalt — endgültig, mit Rückfrage. Der Hauptbereich lässt sich nicht
+samt Inhalt — endgültig, mit Rückfrage. Der Haupt-Tab lässt sich nicht
 löschen, das Addon bräuchte sonst seine Ablage neu. Bereits vergebene
 Berechtigungen bleiben als tote Einträge in den Rollen zurück; das ist
 folgenlos und passiert im YForm Table Manager genauso.
 
-Sprachen sind getrennte Datensätze: Werte in einer Sprache zu ändern lässt die
-anderen unberührt. Wer die Sprache wechselt, ohne zu speichern, bekommt einen
-Dialog mit drei Optionen: speichern und wechseln, verwerfen und wechseln, oder
-hier bleiben. Für alle anderen Wege aus der Seite (Zurück-Button, Tab
-schließen) greift zusätzlich die Standardwarnung des Browsers — deren Wortlaut
-lässt sich nicht beeinflussen, den geben die Browser seit Jahren fest vor.
+### Migration
+
+**Daten übertragen** kopiert alles Gepflegte von einer Domain oder Sprache auf
+eine andere — wahlweise für einen Tab oder für alle. Gedacht zum Aufsetzen
+einer neuen Domain; vorhandene Werte im Ziel werden überschrieben, deshalb mit
+Rückfrage. Quelle und Ziel müssen Domains und Sprachen sein, die der Benutzer
+ohnehin bearbeiten darf.
+
+Die Seite steht getrennt von den Einstellungen, weil sie keine ist: Die
+Einstellungen beschreiben, wie sich das Addon von jetzt an verhält, diese
+Seite ändert gespeicherte Daten in einem Zug.
+
+### Felder und Table Manager
+
+Aus dem Table Manager führt ein Link zurück — er erscheint dort, wo die
+bearbeitete Tabelle zu diesem Addon gehört. Umgekehrt steht Administratoren
+neben dem Speichern-Button der direkte Weg zu den Feldern.
+
+Auf den Tabellen dieses Addons fehlen im Table Manager zwei Dinge, die YForm
+sonst anbietet: das Angebot, `domain_id` und `clang_id` in Felder zu
+verwandeln, und der Knopf „Tabelle aktualisieren mit Feldlöschung". Beides ist
+ausgeblendet, weil beides dieselbe Struktur zerlegt: Die Feldlöschung entfernt
+jede Spalte ohne Feld außer `id` — hier also genau die beiden Spalten, die
+bestimmen, welche Zeile geschrieben wird.
 
 ## Rechte
 
@@ -197,6 +248,10 @@ lässt sich nicht beeinflussen, den geben die Browser seit Jahren fest vor.
 - Tabs über YForms `yform_manager_table_edit` — dieselbe Berechtigung, die
   auch den Table Manager steuert. Ohne Zugriff auf mindestens einen Tab
   bleibt die Seite gesperrt
+
+**Einstellungen**, **Migration** und **Hilfe** sind Administratoren
+vorbehalten. Ein Redakteur mit `yrewrite_domain_settings[]` sieht nur
+**Daten**.
 
 ## IDE-Unterstützung
 
@@ -220,8 +275,8 @@ Werten statt roher Zeilen:
 
 ```
 GET   /api/domain-settings                      alle Tabs
-GET   /api/domain-settings/<bereich>            ein Tab
-PATCH /api/domain-settings/<bereich>            Werte ändern
+GET   /api/domain-settings/<tab>            ein Tab
+PATCH /api/domain-settings/<tab>            Werte ändern
       ?domain_id=1&clang_id=2           beides optional
 ```
 
@@ -241,7 +296,7 @@ die Validatoren der Tabelle; schlägt einer an, kommt `422` mit den Meldungen
 zurück.
 
 **Rechte pro Tab, getrennt nach Lesen und Schreiben:** Jeder Tab
-bekommt eigene Scopes (`domain-settings/read/<bereich>`, `domain-settings/write/<bereich>`),
+bekommt eigene Scopes (`domain-settings/read/<tab>`, `domain-settings/write/<tab>`),
 dazu `domain-settings/read` für den Sammel-Endpunkt. Ein Token zum Auslesen kann also
 nichts verändern. Ein Token lässt sich also auf einzelne Tabs beschränken —
 und es bleiben eine Handvoll Scopes, auch wenn es 150 Felder gibt. Die Vergabe
@@ -313,10 +368,13 @@ und wieder gelöscht wird, und benutzen eine Domain-ID weit außerhalb dessen,
 was yrewrite vergibt. Redaktionelle Inhalte werden nicht angefasst — geprüft
 durch Vergleich der Tabellen vor und nach dem Lauf.
 
-Suiten: `fallback` (Vererbungskette), `sections` (anlegen, umbenennen,
-löschen, reservierte Schlüssel), `cache` (Invalidierung), `security`
-(Regressionen der im Review gefundenen Lücken), `legacy` (die API von 2.3.0),
-`domain-languages` (welche Sprachen eine Domain führt).
+Sieben Suiten mit zusammen 58 Prüfungen: `fallback` (Vererbungskette),
+`sections` (anlegen, umbenennen, löschen, reservierte Schlüssel), `cache`
+(Invalidierung), `security` (Regressionen der im Review gefundenen Lücken),
+`legacy` (die API von 2.3.0), `domain-languages` (welche Sprachen eine Domain
+führt), `section-domains` (Tab-zu-Domain-Zuordnung — dass sie speichert, was
+sie soll, die Navigation steuert, die Berechtigung nie erweitert und den
+Lesepfad nicht anfasst).
 
 Kann eine Prüfung auf dieser Instanz nicht laufen — weil es nur eine Sprache
 gibt, keine fremde YForm-Tabelle oder bereits echte Werte auf der aktuellen

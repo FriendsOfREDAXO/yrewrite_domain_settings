@@ -3,6 +3,86 @@
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [2.5.0] — unveröffentlicht
+
+Die Oberfläche ist umgebaut: Domain, Tab und Sprache stehen jetzt gemeinsam auf
+**einer** Seite statt verteilt über die Backend-Navigation. Datenstruktur, API
+und REST-Routen bleiben unangetastet — gepflegte Werte, eigene Templates und
+Tokens laufen unverändert weiter.
+
+### Hinzugefügt
+
+- **Tab-zu-Domain-Zuordnung**: Mehrfachauswahl in den Einstellungen und schon
+  beim Anlegen eines Tabs, gespeichert in `rex_config` unter `section_domains`.
+  Reiner **Ansichtsfilter** — er bestimmt, wo ein Tab zur Bearbeitung
+  angeboten wird, und sonst nichts. Der Lesepfad bleibt unberührt, bereits
+  gepflegte Werte wirken im Frontend weiter; deshalb sagt das Speichern es
+  dazu, wenn einer abgewählten Domain Werte bleiben. Nichts gewählt heißt
+  alle Domains, alle gewählt wird als „keine Einschränkung" gespeichert —
+  sonst verlöre ein Tab still jede später angelegte Domain.
+- Eigene Seite **Migration** für „Daten übertragen". Getrennt von den
+  Einstellungen, weil sie keine ist: die Einstellungen beschreiben das
+  Verhalten von jetzt an, diese Seite ändert gespeicherte Daten in einem Zug.
+- Kontextzeile über den Tabs: Domain-Auswahl links (`selectpicker`),
+  Sprachumschaltung rechts. Die Sprachumschaltung baut auf den Core-Fragmenten
+  auf (`core/buttons/button_group.php`, ab vier Sprachen
+  `core/dropdowns/dropdown.php`) und trägt `btn-clang` wie die Struktur-Seite.
+- **Schutz vor YForm** auf den Tabellen dieses Addons: ein `OUTPUT_FILTER`
+  blendet YForms Angebot aus, `domain_id` und `clang_id` in Felder zu
+  verwandeln, und den Knopf „Tabelle aktualisieren mit Feldlöschung". Der
+  löscht (yform, `lib/manager/table/api.php`, `generateTableAndFields()` mit
+  `$delete_old`) jede Spalte ohne Feld außer `id` — hier also genau die beiden
+  Spalten, die bestimmen, welche Zeile geschrieben wird.
+- Neue Test-Suite `section-domains` (`lib/Tests/SectionDomainsSuite.php`) mit
+  15 Prüfungen.
+
+### Behoben
+
+- Der Duplikat-Check für Feldnamen fragt erst, ob sich zwei Tabs überhaupt
+  eine Domain teilen. Tabs auf verschiedenen Domains antworten nie für
+  dieselbe Domain und dürfen denselben Feldnamen führen.
+- Beim Zusammenführen mehrerer Tabs schlägt ein gefüllter Wert einen leeren
+  aus einem anderen Tab. Vorher gewann der zuerst gelesene Tab, und eine
+  einmal geöffnete, leere Zeile konnte echten Inhalt verdecken.
+
+### Geändert
+
+- Die Navigation hat vier feste Punkte: **Daten**, **Einstellungen**,
+  **Migration**, **Hilfe**. Vorher war jeder Tab eine eigene Backend-Seite.
+  Alles außer „Daten" ist Administratoren vorbehalten (`perm: admin[]`).
+- **Die Backend-URLs der Tabs ändern sich**: aus
+  `page=yrewrite_domain_settings/<slug>` wird
+  `page=yrewrite_domain_settings/data&section=<slug>`. Lesezeichen auf alte
+  Tab-URLs landen künftig auf dem ersten Tab. Der Rücklink aus dem
+  YForm-Table-Manager wurde mitgezogen. Kein API-Bruch — nur Adressen im
+  Backend.
+- Domain und Sprache liegen in der Session (Request > Session > erste
+  erlaubte) und überdauern damit das Verlassen der Seite. Der Tab steht als
+  `section=<slug>` in der URL: er ist, wo man auf der Seite ist, nicht der
+  Kontext, um den es geht. Die Sprache wird je Domain aufgelöst.
+- Der Dialog bei ungespeicherten Änderungen greift auf **jedem** Weg von der
+  Seite — Reiterwechsel, Felder bearbeiten, Hilfe, Einstellungen,
+  Domainwechsel —, nicht mehr nur beim Sprachwechsel. Das Ziel reist als
+  relativer Backend-Link im POST mit und wird serverseitig gegen ein Muster
+  geprüft, bevor umgeleitet wird.
+- Die Einstellungen liegen in drei Panels: **Neuer Tab**, **Vorhandene Tabs**,
+  **Fallback**. „Daten übertragen" ist auf die Seite **Migration** gewandert.
+- Der Fallback-Hinweis auf der Datenseite nennt nur noch die Regel, ohne die
+  Liste der betroffenen Felder, und steht auf jedem Tab jeder Sprache außer
+  der Fallback-Sprache. Ein Hinweis, der kommt und geht, ist einer, auf den
+  sich niemand verlässt.
+- `console domain-settings:test` — 58 Prüfungen in sieben Suiten.
+
+### Kompatibilität
+
+Kein Breaking Change: Datenstruktur, Legacy-Klassen (`yrewrite_domain_settings`,
+`REX_DOMAIN_SETTING`) und die REST-Routen sind unangetastet,
+`lib/Tests/LegacyApiSuite.php` bleibt grün. Es gibt keine Migration; die
+Tab-zu-Domain-Zuordnung ist neu und leer, was „alle Domains" bedeutet und
+damit dem Verhalten von 2.4.0 entspricht.
+
+Einzige spürbare Änderung sind die Backend-URLs der Tabs, siehe „Geändert".
+
 ## [2.4.0] — unveröffentlicht
 
 Werte sind ab jetzt je Sprache pflegbar und lassen sich in Tabs aufteilen.
