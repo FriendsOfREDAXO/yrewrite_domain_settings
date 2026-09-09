@@ -18,8 +18,10 @@ rex_perm::register('yrewrite_domain_settings[]');
 rex_complex_perm::register('yrewrite_domains', rex_yrewrite_domains_perm::class);
 
 // Values can be changed through this addon's page or directly in the YForm
-// table manager, so the cache is dropped from YForm's own events rather than
-// from the editing page.
+// table manager, so what this request has already read is dropped from
+// YForm's own events rather than from the editing page. Nothing is written to
+// disk any more - this only keeps a save and a read in the same request from
+// disagreeing.
 rex_extension::register(
     ['YFORM_DATA_ADDED', 'YFORM_DATA_UPDATED', 'YFORM_DATA_DELETED'],
     static function (rex_extension_point $ep): void {
@@ -28,15 +30,15 @@ rex_extension::register(
             return;
         }
 
-        // Cheap prefix test first: this fires for every YForm table in the
-        // installation, and only tables named like ours can ever be sections.
+        // A prefix test is enough now: this fires for every YForm table in the
+        // installation, only tables named like ours can ever be tabs, and all
+        // that follows is emptying an array. Looking the table up in
+        // getAllSections() would cost more than it saves.
         if (!str_starts_with($changed->getTableName(), rex::getTable(DomainSettings::ADDON))) {
             return;
         }
 
-        if (array_key_exists($changed->getTableName(), Backend::getAllSections())) {
-            DomainSettings::deleteCache();
-        }
+        DomainSettings::deleteCache();
     },
 );
 
@@ -45,6 +47,8 @@ rex_extension::register('CLANG_ADDED', static function (): void {
 });
 
 rex_extension::register('CACHE_DELETED', static function (): void {
+    // Nothing of ours survives a request any more, so this is about the
+    // section list Backend holds - and about the IDE helper below.
     DomainSettings::deleteCache();
     Backend::resetCaches();
 

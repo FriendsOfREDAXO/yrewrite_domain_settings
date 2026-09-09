@@ -323,19 +323,22 @@ selbst — das Addon muss dafür nicht neu installiert werden.
 
 ## Performance
 
-Alle Werte über alle Domains und Sprachen liegen in einer Cache-Datei, die beim
-ersten `get()` gelesen wird — nicht beim Booten. Requests, die keinen Wert
-abfragen, kosten nichts; das Füllen des Caches braucht eine Query je Tab. Der Cache
-wird über YForms eigene Datenereignisse verworfen, eine Änderung direkt im
-Table Manager wirkt also genauso.
+**Keine Cache-Datei** — Werte kommen aus den Tabellen, so wie YForm alles
+andere auch liest. Der erste Zugriff kostet eine Query je Tab, danach hält das
+Addon die Werte **für diesen Request**: zwanzig `REX_DOMAIN_VALUE` in einem
+Template sind eine Abfrage, nicht zwanzig. Requests, die keinen Wert abfragen,
+kosten nichts.
 
-## Bekannte Einschränkung
+Gemessen über vier Tabs: 0,11 ms für das Lesen, gegenüber 0,016 ms, die eine
+Cache-Datei gebraucht hätte. Der Unterschied ist bezahlt mit dem, was
+Dateicaches kosten — sie wachsen mit der ganzen Installation, obwohl ein
+Request nur eine Domain braucht (bei 20 Domains × 8 Sprachen × 300 Feldern
+sind das 3,4 MB und 6 ms je Request), und sie veralten bei Schemaänderungen,
+für die YForm keinen Extension Point anbietet. Genau das war bis 2.5.0 eine
+dokumentierte Einschränkung dieses Addons und ist jetzt gegenstandslos.
 
-Wird im Table Manager ein Feld gelöscht oder umbenannt, fällt der Wert-Cache
-nicht automatisch — YForm bietet für Schemaänderungen keinen Extension Point,
-`YFORM_GENERATE` feuert bei jedem Formularaufbau und wäre das falsche Signal.
-Bis zum nächsten Speichern liefert `DomainSettings::get()` deshalb noch den alten
-Spaltensatz. Ein `cache:clear` räumt das auf.
+Wer die Werte im Table Manager ändert, sieht sie sofort — es gibt nichts zu
+leeren.
 
 ## Anforderungen
 
@@ -381,9 +384,10 @@ und wieder gelöscht wird, und benutzen eine Domain-ID weit außerhalb dessen,
 was yrewrite vergibt. Redaktionelle Inhalte werden nicht angefasst — geprüft
 durch Vergleich der Tabellen vor und nach dem Lauf.
 
-Sieben Suiten mit zusammen 62 Prüfungen: `fallback` (Vererbungskette),
-`sections` (anlegen, umbenennen, löschen, reservierte Schlüssel), `cache`
-(Invalidierung), `security` (Regressionen der im Review gefundenen Lücken),
+Sieben Suiten mit zusammen 63 Prüfungen: `fallback` (Vererbungskette),
+`sections` (anlegen, umbenennen, löschen, reservierte Schlüssel), `reading`
+(Lesen ohne Cache-Datei, Halten innerhalb des Requests, sofortige Sichtbarkeit
+neuer Felder), `security` (Regressionen der im Review gefundenen Lücken),
 `legacy` (die API von 2.3.0), `domain-languages` (welche Sprachen eine Domain
 führt), `section-domains` (Tab-zu-Domain-Zuordnung — dass sie speichert, was
 sie soll, die Navigation steuert, die Berechtigung nie erweitert, den Lesepfad

@@ -6,7 +6,7 @@ use FriendsOfRedaxo\DomainSettings\Test\AbstractSuite;
 use FriendsOfRedaxo\DomainSettings\Test\AssertionFailed;
 use FriendsOfRedaxo\DomainSettings\Test\Fixtures;
 use FriendsOfRedaxo\DomainSettings\Test\SkippedException;
-use FriendsOfRedaxo\DomainSettings\Tests\CacheSuite;
+use FriendsOfRedaxo\DomainSettings\Tests\ReadingSuite;
 use FriendsOfRedaxo\DomainSettings\Tests\DomainLanguagesSuite;
 use FriendsOfRedaxo\DomainSettings\Tests\FallbackSuite;
 use FriendsOfRedaxo\DomainSettings\Tests\LegacyApiSuite;
@@ -43,7 +43,7 @@ class TestCommand extends rex_console_command
     private const SUITES = [
         'fallback' => FallbackSuite::class,
         'sections' => SectionsSuite::class,
-        'cache' => CacheSuite::class,
+        'reading' => ReadingSuite::class,
         'security' => SecuritySuite::class,
         'legacy' => LegacyApiSuite::class,
         'domain-languages' => DomainLanguagesSuite::class,

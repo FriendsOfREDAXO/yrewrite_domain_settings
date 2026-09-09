@@ -557,6 +557,13 @@ final class SectionDomainsSuite extends AbstractSuite
                 'the filled value of the second tab must win',
             );
 
+            // The other side of a shared name: it is reported, so an editor
+            // can rename one of the two instead of wondering which wins.
+            Assert::true(
+                in_array($field, Backend::getDuplicateFieldNames(), true),
+                'a name used by two tabs of one domain is reported',
+            );
+
             // The other way round: with `+` exactly one of the two directions
             // would answer with the empty placeholder.
             $this->write($a, $domains[0], $clangId, [$field => 'aus a']);

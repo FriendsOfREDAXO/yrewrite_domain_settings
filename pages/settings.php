@@ -234,6 +234,19 @@ $body = '<form class="domain-settings-sections" action="' . rex_url::currentBack
     . '<button class="btn btn-save" type="submit">' . rex_i18n::msg('domain_settings_sections_save') . '</button>'
     . '</form>';
 
+// A field name used by two tabs of the same domain resolves to whichever
+// table is read first - worth saying here, where tabs and their domains are
+// managed. Checked on every visit rather than on every request: it can only
+// change through the YForm table manager, which has no event to hook into.
+$duplicates = Backend::getDuplicateFieldNames();
+
+if ([] !== $duplicates) {
+    $body .= rex_view::warning(rex_i18n::rawMsg(
+        'domain_settings_duplicate_fields',
+        rex_escape(implode(', ', $duplicates)),
+    ));
+}
+
 $fragment = new rex_fragment();
 $fragment->setVar('title', rex_i18n::msg('domain_settings_sections_existing'), false);
 $fragment->setVar('body', $body, false);

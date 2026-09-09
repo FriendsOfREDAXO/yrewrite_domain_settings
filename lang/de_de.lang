@@ -66,6 +66,7 @@ domain_settings_section_domains = Domains
 domain_settings_section_domains_none = keine Domain
 domain_settings_section_domains_notice = Bestimmt, in welchen Domains ein Tab gilt - er wird dort zur Bearbeitung angeboten und nur dort im Frontend ausgegeben. Mindestens eine Domain muss gewählt sein, alle gewählt heißt "keine Einschränkung". Werte einer entzogenen Domain bleiben gespeichert und kehren zurück, sobald sie wieder zugeordnet ist.
 domain_settings_section_domain_orphaned = Diese Werte werden im Frontend nicht mehr ausgegeben, weil der Tab in der Domain nicht mehr gilt. Sie bleiben gespeichert und kehren zurück, sobald die Domain wieder zugeordnet ist: {0}
+domain_settings_duplicate_fields = Diese Feldnamen kommen in mehreren Tabs derselben Domain vor: {0}. Welcher Wert bei der Ausgabe gewinnt, hängt davon ab, welcher Tab zuerst gelesen wird - einen davon umbenennen.
 domain_settings_no_section_for_domain = Für die Domain "{0}" ist kein Tab freigegeben. Die Zuordnung lässt sich in den Einstellungen ändern.
 domain_settings_migration = Migration
 domain_settings_section_add_title = Neuer Tab

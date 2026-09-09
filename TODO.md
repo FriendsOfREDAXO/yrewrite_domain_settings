@@ -59,10 +59,6 @@ eigener Umbau.
 
 ## Kleinere Punkte
 
-- **Cache bei Schemaänderungen**: Feld löschen im Table Manager verwirft den
-  Wert-Cache nicht. Bis `cache:clear` liefert `get()` den alten Spaltensatz.
-  YForm hat dafür keinen Extension Point (`YFORM_GENERATE` feuert bei jedem
-  Formularaufbau und wäre das falsche Signal).
 - **Verwaiste Berechtigungen** nach dem Löschen eines Tabs aufräumen —
   bewusst offen gelassen, weil es Schreiben in fremde Rollen-Datensätze
   bedeutet. Die Domain-Zuordnung des Tabs wird beim Löschen dagegen

@@ -59,6 +59,21 @@ Tokens laufen unverändert weiter.
 
 ### Geändert
 
+- **Der Wert-Cache ist weg.** Werte kommen aus den Tabellen, wie YForm alles
+  andere auch liest; gehalten werden sie nur innerhalb eines Requests, damit
+  zwanzig `REX_DOMAIN_VALUE` in einem Template eine Abfrage bleiben. Damit
+  entfällt die dokumentierte Einschränkung, dass eine Schemaänderung im Table
+  Manager bis zum nächsten `cache:clear` alte Spalten lieferte — YForm bietet
+  dafür keinen Extension Point, und ohne Datei braucht es keinen. Kostenpunkt
+  0,11 ms statt 0,016 ms über vier Tabs; dafür wächst nichts mehr mit der
+  Größe der Installation. `DomainSettings::deleteCache()` bleibt als Methode
+  bestehen und verwirft jetzt das, was der Request gelesen hat. Das Update
+  löscht die alte `values.json`.
+- **Doppelte Feldnamen** meldet die Seite Einstellungen, statt sie beim
+  Cache-Aufbau ins Log zu schreiben (`Backend::getDuplicateFieldNames()`).
+- Die **Autovervollständigung** listet keine Felder mehr auf, die gar keine
+  Spalte haben — etwa eine 1-n-Relation, deren Werte in der anderen Tabelle
+  liegen und die `get()` nie beantworten kann.
 - Die Navigation hat vier feste Punkte: **Daten**, **Einstellungen**,
   **Migration**, **Hilfe**. Vorher war jeder Tab eine eigene Backend-Seite.
   Alles außer „Daten" ist Administratoren vorbehalten (`perm: admin[]`).

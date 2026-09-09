@@ -66,6 +66,7 @@ domain_settings_section_domains = Domains
 domain_settings_section_domains_none = no domain
 domain_settings_section_domains_notice = Decides which domains a tab counts on - it is offered for editing there and delivered on the frontend there only. At least one domain has to be picked, all of them means "no limit". Values of a domain taken away stay stored and come back as soon as it is assigned again.
 domain_settings_section_domain_orphaned = These values are no longer delivered on the frontend, because the tab does not count on that domain any more. They stay stored and come back as soon as the domain is assigned again: {0}
+domain_settings_duplicate_fields = These field names exist in more than one tab of the same domain: {0}. Which value wins on output depends on which tab is read first - rename one of them.
 domain_settings_no_section_for_domain = No tab is assigned to the domain "{0}". The assignment can be changed in the settings.
 domain_settings_migration = Migration
 domain_settings_section_add_title = New tab

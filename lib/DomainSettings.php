@@ -6,16 +6,12 @@ use rex;
 use rex_addon;
 use rex_article;
 use rex_clang;
-use rex_file;
-use rex_logger;
-use rex_path;
 use rex_sql;
 use rex_yform_manager_dataset;
 use rex_yform_manager_table;
 use rex_yrewrite;
 
 use function in_array;
-use function is_array;
 use function is_scalar;
 
 /**
@@ -32,22 +28,24 @@ use function is_scalar;
  * alike. The rows themselves stay untouched, so assigning the domain again
  * brings them back.
  *
- * All domains and languages share one cache file, read lazily on first
- * access - requests that never ask for a value pay nothing. Two measured
- * points, deliberately far apart: a typical installation (3 domains, 2
- * languages, 40 fields) reads 16 KB in 0.05 ms; a deliberately extreme one
- * (10 domains, 5 languages, 8 sections, 152 fields with 60 characters each)
- * reads 560 KB in 1.3 ms. Around the upper end, splitting the file per domain
- * starts to pay off - isMediaInUse() would then need its own way to see all
- * of them.
+ * Read straight from the tables, like YForm reads everything else - there is
+ * no cache file. Values are held for the current request only, per domain and
+ * language, so a template asking for twenty keys still queries once. A file
+ * cache would buy a fraction of a millisecond (0.016 ms against 0.11 ms
+ * measured over four tabs) and cost what file caches cost: it grows with the
+ * whole installation although a request only ever needs one domain, and it
+ * goes stale on schema changes YForm has no event for.
  */
 final class DomainSettings
 {
     public const ADDON = 'yrewrite_domain_settings';
-    private const CACHE_FILE = 'values.json';
 
-    /** @var array<int, array<int, array<string, string>>>|null domain => clang => key => value */
-    private static ?array $cache = null;
+    /**
+     * Values already read in this request.
+     *
+     * @var array<int, array<int, array<string, string>>> domain => clang => key => value
+     */
+    private static array $loaded = [];
 
     /**
      * Returns a single value, or $default when it is not set anywhere.
@@ -58,19 +56,17 @@ final class DomainSettings
      */
     public static function get(string $key, mixed $default = null, ?int $domainId = null, ?int $clangId = null): mixed
     {
-        $data = self::load();
-
         $domainId ??= self::getCurrentDomainId();
         $clangId ??= rex_clang::getCurrentId();
 
-        $value = $data[$domainId][$clangId][$key] ?? null;
+        $value = self::valuesFor($domainId, $clangId)[$key] ?? null;
         if (!self::isEmpty($value)) {
             return $value;
         }
 
         $fallbackClangId = self::getFallbackClangId($domainId);
         if ($fallbackClangId !== $clangId) {
-            $value = $data[$domainId][$fallbackClangId][$key] ?? null;
+            $value = self::valuesFor($domainId, $fallbackClangId)[$key] ?? null;
             if (!self::isEmpty($value)) {
                 return $value;
             }
@@ -90,20 +86,18 @@ final class DomainSettings
      */
     public static function getAll(?int $domainId = null, ?int $clangId = null): array
     {
-        $data = self::load();
-
         $domainId ??= self::getCurrentDomainId();
         $clangId ??= rex_clang::getCurrentId();
 
         $values = [];
 
-        foreach ($data[$domainId][self::getFallbackClangId($domainId)] ?? [] as $key => $value) {
+        foreach (self::valuesFor($domainId, self::getFallbackClangId($domainId)) as $key => $value) {
             if (!self::isEmpty($value)) {
                 $values[$key] = $value;
             }
         }
 
-        foreach ($data[$domainId][$clangId] ?? [] as $key => $value) {
+        foreach (self::valuesFor($domainId, $clangId) as $key => $value) {
             if (!self::isEmpty($value)) {
                 $values[$key] = $value;
             }
@@ -323,10 +317,17 @@ final class DomainSettings
         return false;
     }
 
+    /**
+     * Drops what this request has read so far.
+     *
+     * There is no cache file any more, so this only matters within one
+     * request: after a save, the next read has to see the new rows. Kept
+     * public and kept being called from the write paths for exactly that -
+     * and because project code may call it.
+     */
     public static function deleteCache(): void
     {
-        self::$cache = null;
-        rex_file::delete(self::getCacheFile());
+        self::$loaded = [];
     }
 
     /**
@@ -360,167 +361,58 @@ final class DomainSettings
         return $fields;
     }
 
-    /** @return array<int, array<int, array<string, string>>> */
-    private static function load(): array
-    {
-        if (null !== self::$cache) {
-            return self::$cache;
-        }
-
-        $cached = rex_file::getCache(self::getCacheFile(), null);
-        if (is_array($cached)) {
-            $normalised = self::normalise($cached);
-
-            // Everything thrown away although there was something to read: a
-            // file in a shape this version does not know, from an older
-            // release or written by hand. Rebuilding beats serving nothing.
-            if ([] !== $normalised || [] === $cached) {
-                return self::$cache = $normalised;
-            }
-        }
-
-        $data = self::build();
-        rex_file::putCache(self::getCacheFile(), $data);
-
-        return self::$cache = $data;
-    }
-
     /**
-     * Brings a decoded cache file back into the documented shape.
+     * Every value of one domain and language, tab by tab.
      *
-     * The file is JSON on disk and can be anything - truncated by a full disk,
-     * written by an older version, edited by hand. Claiming the shape without
-     * checking would push the problem into every caller.
+     * Read once per request and held afterwards: a template asking for twenty
+     * keys must not query twenty times. Deliberately not written to disk -
+     * see the class comment.
      *
-     * @param array<mixed> $data
+     * Values are cast to string on the way out. YForm creates `integer` and
+     * `number` columns as nullable, so the raw rows would carry nulls into
+     * every caller that expects a string.
      *
-     * @return array<int, array<int, array<string, string>>>
+     * @return array<string, string>
      */
-    private static function normalise(array $data): array
+    private static function valuesFor(int $domainId, int $clangId): array
     {
-        $result = [];
+        if (isset(self::$loaded[$domainId][$clangId])) {
+            return self::$loaded[$domainId][$clangId];
+        }
 
-        foreach ($data as $domainId => $byClang) {
-            // A non-numeric key would cast to 0 - and 0 is a real bucket, the
-            // one served without yrewrite. A foreign file would be delivered
-            // rather than discarded.
-            if (!is_array($byClang) || (string) (int) $domainId !== (string) $domainId) {
+        $values = [];
+        $sql = rex_sql::factory();
+
+        foreach (array_keys(Backend::getAllSections()) as $table) {
+            // A tab that is not offered on this domain does not answer for it
+            // either: the rows stay in the table, out of every read, and come
+            // back the moment the domain is assigned again.
+            if (!Backend::isSectionVisibleForDomain($table, $domainId)) {
                 continue;
             }
 
-            foreach ($byClang as $clangId => $values) {
-                if (!is_array($values) || (string) (int) $clangId !== (string) $clangId) {
-                    continue;
-                }
+            $rows = $sql->getArray(
+                'SELECT * FROM ' . $sql->escapeIdentifier($table) . ' WHERE domain_id = :domain AND clang_id = :clang',
+                ['domain' => $domainId, 'clang' => $clangId],
+            );
 
-                foreach ($values as $key => $value) {
-                    if (null !== $value && !is_scalar($value)) {
-                        // Not a value this addon ever wrote - skip it rather
-                        // than force it into a string.
-                        continue;
-                    }
-
-                    $result[(int) $domainId][(int) $clangId][(string) $key] = (string) $value;
-                }
-            }
-        }
-
-        return $result;
-    }
-
-    /**
-     * Reads every section in one query each and indexes the rows by domain and
-     * language.
-     *
-     * Values are cast to string on the way in. YForm creates `integer` and
-     * `number` columns as nullable, so the raw rows would carry nulls into the
-     * cache file and from there into every caller that expects a string.
-     *
-     * @return array<int, array<int, array<string, string>>>
-     */
-    private static function build(): array
-    {
-        $data = [];
-        $seen = [];
-        $duplicates = [];
-
-        foreach (array_keys(Backend::getAllSections()) as $table) {
-            // The domains this section is offered on. An empty list means all
-            // of them, so it never filters anything out.
-            $assignedDomains = Backend::getSectionDomainIds($table);
-
-            // From the columns, not from the first row: a section without rows
-            // would otherwise contribute nothing and its duplicate field names
-            // would stay unreported until someone saves there for the first
-            // time.
-            $managerTable = rex_yform_manager_table::get($table);
-
-            foreach (array_keys($managerTable?->getColumns() ?? []) as $key) {
-                if (in_array($key, ['id', 'domain_id', 'clang_id'], true)) {
-                    continue;
-                }
-
-                // Only a real clash counts: sections assigned to different
-                // domains never answer for the same domain, so they may carry
-                // the same field name.
-                if (isset($seen[$key])
-                    && $seen[$key] !== $table
-                    && Backend::sectionsShareDomain($seen[$key], $table)
-                ) {
-                    $duplicates[$key] = true;
-                }
-
-                $seen[$key] = $table;
-            }
-
-            $sql = rex_sql::factory();
-
-            foreach ($sql->getArray('SELECT * FROM ' . $sql->escapeIdentifier($table)) as $row) {
-                $domainId = (int) $row['domain_id'];
-                $clangId = (int) $row['clang_id'];
-
-                // A tab that is not offered on a domain does not answer for it
-                // either: rows left behind from before the assignment stay in
-                // the table, out of the cache, and come back the moment the
-                // domain is assigned again. Without this the same field name
-                // in two tabs - which the assignment is what makes legal -
-                // would resolve to whichever table was read first.
-                if ([] !== $assignedDomains && !in_array($domainId, $assignedDomains, true)) {
-                    continue;
-                }
-
+            foreach ($rows as $row) {
                 unset($row['id'], $row['domain_id'], $row['clang_id']);
 
-                $row = array_map(static fn ($value) => (string) $value, $row);
-
-                $data[$domainId][$clangId] ??= [];
-
                 foreach ($row as $key => $value) {
-                    // A filled value beats an empty one from another section,
+                    // A filled value beats an empty one from another tab,
                     // whichever was read first. Opening a tab writes an empty
-                    // row even where that tab is not used, and with `+` such a
-                    // placeholder would shadow real content further down the
-                    // list of sections.
-                    if (!isset($data[$domainId][$clangId][$key])
-                        || self::isEmpty($data[$domainId][$clangId][$key])
-                    ) {
-                        $data[$domainId][$clangId][$key] = $value;
+                    // row even where that tab is not used, and without this
+                    // such a placeholder would shadow real content further
+                    // down the list of tabs.
+                    if (!isset($values[$key]) || self::isEmpty($values[$key])) {
+                        $values[(string) $key] = (string) $value;
                     }
                 }
             }
         }
 
-        if ([] !== $duplicates) {
-            // Sections share one key namespace, so the same field name in two
-            // sections would resolve unpredictably. Worth noticing rather than
-            // silently picking one.
-            rex_logger::factory()->warning(
-                'domain_settings: field name(s) used in more than one section: {fields}',
-                ['fields' => implode(', ', array_keys($duplicates))],
-            );
-        }
-
-        return $data;
+        return self::$loaded[$domainId][$clangId] = $values;
     }
 
     /**
@@ -531,10 +423,5 @@ final class DomainSettings
     private static function isEmpty(mixed $value): bool
     {
         return null === $value || '' === $value;
-    }
-
-    private static function getCacheFile(): string
-    {
-        return rex_path::addonCache(self::ADDON, self::CACHE_FILE);
     }
 }

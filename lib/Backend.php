@@ -607,6 +607,44 @@ final class Backend
     }
 
     /**
+     * Field names that more than one tab uses on the same domain.
+     *
+     * The key namespace is shared, so the same name in two tabs resolves to
+     * whichever table is read first. Only a real clash counts: tabs assigned
+     * to different domains never answer for the same domain, so they may well
+     * carry the same name.
+     *
+     * Used to be reported from the value cache while it was built; without
+     * that cache the check belongs where tabs are managed and to the self
+     * test, not into every request.
+     *
+     * @return list<string>
+     */
+    public static function getDuplicateFieldNames(): array
+    {
+        $seen = [];
+        $duplicates = [];
+
+        foreach (array_keys(self::getAllSections()) as $table) {
+            foreach (self::getFieldNames($table) as $name) {
+                if (isset($seen[$name])
+                    && $seen[$name] !== $table
+                    && self::sectionsShareDomain($seen[$name], $table)
+                ) {
+                    $duplicates[$name] = true;
+                }
+
+                $seen[$name] = $table;
+            }
+        }
+
+        $names = array_keys($duplicates);
+        sort($names);
+
+        return $names;
+    }
+
+    /**
      * All field names, without layout elements.
      *
      * @param string|null $onlyTable limit to one section, null for all of them
@@ -624,12 +662,18 @@ final class Backend
                 continue;
             }
 
+            $columns = $table->getColumns();
+
             foreach ($table->getValueFields() as $field) {
-                // Layout elements hold no value, so completing them would be
-                // misleading.
-                if (in_array($field->getTypeName(), ['fieldset', 'html'], true)) {
+                // Asked of the table, not of a list of type names: layout
+                // elements hold no value, and neither does a 1-n relation -
+                // that one lives in the other table and never becomes a column
+                // here. Completing either would promise a value that get()
+                // can never answer with.
+                if (!array_key_exists($field->getName(), $columns)) {
                     continue;
                 }
+
                 $names[$field->getName()] = true;
             }
         }
