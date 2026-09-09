@@ -26,6 +26,13 @@ Template ändert sich also nicht, wenn du ein Feld später in einen anderen
 Bereich verschiebst. Der Preis: Ein Feldname darf nur einmal vergeben werden;
 kommt er in zwei Bereichen vor, landet eine Warnung im `system.log`.
 
+**Welche Sprachen eine Domain hat, sagt yrewrite**, nicht der REDAXO-Kern:
+Führt eine Domain nur Deutsch und Englisch und eine zweite zusätzlich
+Französisch, bietet jede genau ihre eigenen an. Werte in einer Sprache zu
+pflegen, die dort nie ausgeliefert wird, ist damit ausgeschlossen. Auch der
+Fallback bleibt in der Domain: Ist die eingestellte Fallback-Sprache dort
+nicht vorhanden, übernimmt die Startsprache der Domain.
+
 Sprachneutrale Werte wie Logo oder Adresse brauchen keine Sonderbehandlung —
 sie werden in der Fallback-Sprache gepflegt und von allen anderen geerbt. Das
 ist derselbe Mechanismus, der auch „noch nicht übersetzt" abdeckt.
@@ -83,6 +90,14 @@ Alle Sprachen erben zunächst die vorhandenen Werte. Wo etwas übersetzt werden
 soll, trägt man es in der jeweiligen Sprache ein — der Rest bleibt vererbt.
 Ein Feld, das in allen Sprachen gleich ist (Logo, Adresse), pflegt man
 weiterhin nur einmal.
+
+Angeboten werden je Domain nur die Sprachen, die in yrewrite für sie
+hinterlegt sind.
+
+Wer sich die Sprachachse bisher selbst gebaut hat — etwa eine zweite Tabelle,
+die per Fremdschlüssel an der Datensatz-ID hängt — behält sie funktionsfähig:
+Die IDs bleiben, der Verweis zeigt weiter auf die Zeile der Startsprache. Sie
+wird durch dieses Update lediglich überflüssig.
 
 ### Escaping: die alte und die neue Variable
 
@@ -266,8 +281,6 @@ Domain 0 — das Addon funktioniert dann wie eine reine Sammlung globaler Werte.
 |---|---|
 | [CHANGELOG.md](CHANGELOG.md) | Was drin ist, was behoben wurde, bekannte Einschränkungen |
 | [TODO.md](TODO.md) | Offene Punkte, nach Wichtigkeit sortiert |
-| [docs/development.md](docs/development.md) | Testinstanz, Zugänge, Fallstricke beim Testen |
-| [docs/migration-global-settings.md](docs/migration-global-settings.md) | Was eine Übernahme aus global_settings bedeuten würde |
 
 ## Entwicklung
 

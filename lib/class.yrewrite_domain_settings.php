@@ -111,7 +111,7 @@ class yrewrite_domain_settings
 
         $domainId = DomainSettings::getCurrentDomainId();
         $clangId = rex_clang::getCurrentId();
-        $fallbackClangId = DomainSettings::getFallbackClangId();
+        $fallbackClangId = DomainSettings::getFallbackClangId($domainId);
 
         $row = self::fetchRow($table, $domainId, $clangId);
 

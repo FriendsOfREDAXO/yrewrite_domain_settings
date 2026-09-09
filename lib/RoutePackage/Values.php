@@ -201,7 +201,9 @@ class Values extends RoutePackage
         $clangId = (int) ($query['clang_id'] ?? 0);
 
         if (0 === $clangId) {
-            $clangId = rex_clang::getStartId();
+            // The domain's fallback, not the site's start language: a domain
+            // may not serve that language at all.
+            $clangId = DomainSettings::getFallbackClangId($domainId);
         } elseif (!rex_clang::exists($clangId)) {
             return [0, 0, new JsonResponse(['error' => 'Unknown clang_id'], 400)];
         }

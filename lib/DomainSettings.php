@@ -55,7 +55,7 @@ final class DomainSettings
             return $value;
         }
 
-        $fallbackClangId = self::getFallbackClangId();
+        $fallbackClangId = self::getFallbackClangId($domainId);
         if ($fallbackClangId !== $clangId) {
             $value = $data[$domainId][$fallbackClangId][$key] ?? null;
             if (!self::isEmpty($value)) {
@@ -84,7 +84,7 @@ final class DomainSettings
 
         $values = [];
 
-        foreach ($data[$domainId][self::getFallbackClangId()] ?? [] as $key => $value) {
+        foreach ($data[$domainId][self::getFallbackClangId($domainId)] ?? [] as $key => $value) {
             if (!self::isEmpty($value)) {
                 $values[$key] = $value;
             }
@@ -99,8 +99,38 @@ final class DomainSettings
         return $values;
     }
 
-    /** The language a value falls back to when it is not filled in. */
-    public static function getFallbackClangId(): int
+    /**
+     * The language a value falls back to when it is not filled in.
+     *
+     * With a domain given, the answer can differ per domain: yrewrite lets
+     * every domain run its own set of languages, so one may serve German and
+     * English while another adds French. Falling back to a language a domain
+     * does not serve would inherit from something that is never delivered
+     * there, so in that case the domain's own start language takes over.
+     */
+    public static function getFallbackClangId(?int $domainId = null): int
+    {
+        $configured = self::getConfiguredFallbackClangId();
+
+        if (null === $domainId) {
+            return $configured;
+        }
+
+        $available = Backend::getDomainClangIds($domainId);
+
+        if ([] === $available || in_array($configured, $available, true)) {
+            return $configured;
+        }
+
+        $startClang = Backend::getDomainStartClangId($domainId);
+
+        return null !== $startClang && in_array($startClang, $available, true)
+            ? $startClang
+            : $available[0];
+    }
+
+    /** The fallback configured on the settings page, ignoring any domain. */
+    public static function getConfiguredFallbackClangId(): int
     {
         $configured = rex_addon::get(self::ADDON)->getConfig('fallback_clang_id');
 

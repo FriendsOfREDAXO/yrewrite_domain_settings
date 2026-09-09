@@ -20,6 +20,7 @@ use rex_yform_manager_dataset;
 use rex_yform_manager_table;
 use rex_yform_manager_table_api;
 use rex_yrewrite;
+use rex_yrewrite_domain;
 use RuntimeException;
 
 use function array_key_exists;
@@ -63,16 +64,7 @@ final class Backend
             return [0 => rex_i18n::msg('domain_settings_domain_default')];
         }
 
-        // yrewrite fills its domain list during boot in a web request. In a
-        // console command it stays empty until init() runs, which would make
-        // a configured instance look like it had no domains at all. Checking
-        // for the empty list beats sniffing the context: rex::isBackend() is
-        // true on the CLI as well, so it cannot tell the two apart.
-        $yrewriteDomains = rex_yrewrite::getDomains();
-        if ([] === $yrewriteDomains) {
-            rex_yrewrite::init();
-            $yrewriteDomains = rex_yrewrite::getDomains();
-        }
+        $yrewriteDomains = self::getYrewriteDomains();
 
         $domains = [];
         foreach ($yrewriteDomains as $domain) {
@@ -94,6 +86,72 @@ final class Backend
         ksort($domains);
 
         return $domains;
+    }
+
+    /**
+     * yrewrite's domain objects.
+     *
+     * yrewrite fills its domain list during boot in a web request. In a
+     * console command it stays empty until init() runs, which would make a
+     * configured instance look like it had no domains at all. Checking for the
+     * empty list beats sniffing the context: rex::isBackend() is true on the
+     * CLI as well, so it cannot tell the two apart.
+     *
+     * @return array<string, rex_yrewrite_domain>
+     */
+    private static function getYrewriteDomains(): array
+    {
+        $domains = rex_yrewrite::getDomains();
+
+        if ([] === $domains) {
+            rex_yrewrite::init();
+            $domains = rex_yrewrite::getDomains();
+        }
+
+        return $domains;
+    }
+
+    /**
+     * The languages a domain actually serves, as configured in yrewrite.
+     *
+     * A domain that only runs German and English must not offer a third
+     * language for editing - values maintained there would never be delivered.
+     * An empty list means "no restriction": that is domain 0, an instance
+     * without yrewrite, or a domain that has no language selection of its own.
+     *
+     * @return list<int>
+     */
+    public static function getDomainClangIds(int $domainId): array
+    {
+        if (0 === $domainId || !rex_addon::get('yrewrite')->isAvailable()) {
+            return [];
+        }
+
+        foreach (self::getYrewriteDomains() as $domain) {
+            if ((int) $domain->getId() !== $domainId) {
+                continue;
+            }
+
+            $clangs = array_values(array_filter(array_map('intval', $domain->getClangs())));
+
+            return array_values(array_filter($clangs, rex_clang::exists(...)));
+        }
+
+        return [];
+    }
+
+    /** The start language yrewrite has configured for a domain, if any. */
+    public static function getDomainStartClangId(int $domainId): ?int
+    {
+        foreach (self::getYrewriteDomains() as $domain) {
+            if ((int) $domain->getId() === $domainId) {
+                $startClang = (int) $domain->getStartClang();
+
+                return rex_clang::exists($startClang) ? $startClang : null;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -461,20 +519,27 @@ final class Backend
     }
 
     /**
-     * Languages the current user may edit.
+     * Languages the current user may edit, optionally limited to one domain.
      *
-     * Uses the core's `clang` complex permission, the same one the language
-     * selection in the user profile writes to - so there is nothing to
-     * configure twice.
+     * Two filters apply. The core's `clang` complex permission - the same one
+     * the language selection in the user profile writes to, so there is
+     * nothing to configure twice. And, when a domain is given, the languages
+     * that domain serves in yrewrite: with two languages on one domain and
+     * three on another, only the ones actually delivered should be offered.
      *
      * @return list<rex_clang>
      */
-    public static function getEditableClangs(): array
+    public static function getEditableClangs(?int $domainId = null): array
     {
         $user = rex::getUser();
+        $available = null === $domainId ? [] : self::getDomainClangIds($domainId);
         $clangs = [];
 
         foreach (rex_clang::getAll() as $clang) {
+            if ([] !== $available && !in_array($clang->getId(), $available, true)) {
+                continue;
+            }
+
             if (null === $user || $user->getComplexPerm('clang')->hasPerm($clang->getId())) {
                 $clangs[] = $clang;
             }
@@ -587,7 +652,7 @@ final class Backend
      */
     public static function getInheritedKeys(string $table, int $domainId, int $clangId): array
     {
-        $fallbackClangId = DomainSettings::getFallbackClangId();
+        $fallbackClangId = DomainSettings::getFallbackClangId($domainId);
         if ($fallbackClangId === $clangId) {
             return [];
         }
@@ -596,7 +661,7 @@ final class Backend
         // by naming which of its fields are filled.
         $editableClangIds = array_map(
             static fn (rex_clang $clang) => $clang->getId(),
-            self::getEditableClangs(),
+            self::getEditableClangs($domainId),
         );
         if (!in_array($fallbackClangId, $editableClangIds, true)) {
             return [];

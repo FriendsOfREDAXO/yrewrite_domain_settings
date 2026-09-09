@@ -37,7 +37,14 @@ if ('' !== $func) {
     } elseif ('copy' === $func) {
         $sections = Backend::getSections();
         $domains = Backend::getDomains();
-        $clangIds = array_map(static fn (rex_clang $clang) => $clang->getId(), Backend::getEditableClangs());
+
+        // Per domain, because yrewrite may serve different languages on each:
+        // copying into a language the target domain does not have would write
+        // rows that are never delivered.
+        $clangIdsFor = static fn (int $domainId) => array_map(
+            static fn (rex_clang $clang) => $clang->getId(),
+            Backend::getEditableClangs($domainId),
+        );
 
         $onlyTable = rex_post('copy_section', 'string', '');
         $from = [rex_post('copy_from_domain', 'int', 0), rex_post('copy_from_clang', 'int', 0)];
@@ -46,8 +53,8 @@ if ('' !== $func) {
         // Everything the request names has to be something this user may see -
         // otherwise the form would be a way to read one domain into another.
         $allowed = isset($domains[$from[0]], $domains[$to[0]])
-            && in_array($from[1], $clangIds, true)
-            && in_array($to[1], $clangIds, true)
+            && in_array($from[1], $clangIdsFor($from[0]), true)
+            && in_array($to[1], $clangIdsFor($to[0]), true)
             && ('' === $onlyTable || isset($sections[$onlyTable]));
 
         if (!$allowed) {

@@ -11,15 +11,9 @@ use FriendsOfRedaxo\DomainSettings\DomainSettings;
 
 $sections = Backend::getSections();
 $domains = Backend::getDomains();
-$clangs = Backend::getEditableClangs();
 
 if ([] === $sections) {
     echo rex_view::warning(rex_i18n::msg('domain_settings_no_section_permission'));
-    return;
-}
-
-if ([] === $clangs) {
-    echo rex_view::warning(rex_i18n::msg('domain_settings_no_clang_permission'));
     return;
 }
 
@@ -45,8 +39,17 @@ if (!isset($domains[$domainId])) {
     $domainId = (int) array_key_first($domains);
 }
 
+// The languages depend on the domain: yrewrite decides per domain which ones
+// it serves, so the tabs are built after the domain is known.
+$clangs = Backend::getEditableClangs($domainId);
+
+if ([] === $clangs) {
+    echo rex_view::warning(rex_i18n::msg('domain_settings_no_clang_permission'));
+    return;
+}
+
 $clangIds = array_map(static fn (rex_clang $clang) => $clang->getId(), $clangs);
-$fallbackClangId = DomainSettings::getFallbackClangId();
+$fallbackClangId = DomainSettings::getFallbackClangId($domainId);
 $clangId = rex_get('clang_id', 'int', 0);
 if (!in_array($clangId, $clangIds, true)) {
     $clangId = in_array($fallbackClangId, $clangIds, true) ? $fallbackClangId : $clangIds[0];
