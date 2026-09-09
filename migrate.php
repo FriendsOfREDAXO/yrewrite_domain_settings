@@ -105,12 +105,20 @@ $registration = [
     'history' => 0,
 ];
 
+// The name has to be passed every time, even when it is not meant to change:
+// setTable() falls back to the table name whenever the key is absent, in the
+// update branch as well (yform/lib/manager/table/api.php). Leaving it out once
+// turned "Domaineinstellungen" into "rex_yrewrite_domain_settings".
 $existing = rex_yform_manager_table::get($table);
-if (null === $existing || '' === (string) $existing->getName()) {
-    // Only on first registration - an installation that has renamed its table
-    // keeps the name it chose. The language files of the *new* version are
-    // only loaded when this runs from install.php; during an update the old
-    // ones are still active, hence the literal fallback.
+$currentName = null === $existing ? '' : (string) $existing->getName();
+
+if ('' !== $currentName && $currentName !== $table) {
+    // Whatever this installation calls its table, it keeps calling it that.
+    $registration['name'] = $currentName;
+} else {
+    // First registration. The language files of the *new* version are only
+    // loaded when this runs from install.php; during an update the old ones
+    // are still active, hence the literal fallback.
     $registration['name'] = rex_i18n::hasMsg('domain_settings_table')
         ? rex_i18n::msg('domain_settings_table')
         : 'Domaineinstellungen';
