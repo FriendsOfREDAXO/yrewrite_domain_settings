@@ -14,8 +14,6 @@ use FriendsOfRedaxo\DomainSettings\RoutePackage\Values;
 // Registered in the GENERAL group, which is what the language key
 // perm_general_yrewrite_domain_settings[] expects - rex_perm looks the label
 // up as 'perm_' . group . '_' . perm (core/lib/login/perm.php).
-$addon = $this;
-
 rex_perm::register('yrewrite_domain_settings[]');
 rex_complex_perm::register('yrewrite_domains', rex_yrewrite_domains_perm::class);
 
@@ -109,36 +107,6 @@ if (rex::isBackend() && rex::getUser()) {
     rex_view::addJsFile($this->getAssetsUrl('domain_settings.js') . $version);
 }
 
-// Sections become real backend tabs rather than a second row of tabs inside
-// the page. They are added in front of the statically defined subpages so the
-// content sits left and settings/help stay on the right.
-if (rex::isBackend()) {
-    rex_extension::register('PAGES_PREPARED', static function () use ($addon): void {
-        $user = rex::getUser();
-        if (!$user instanceof rex_user) {
-            return;
-        }
-
-        $page = rex_be_controller::getPageObject('yrewrite_domain_settings');
-        if (null === $page) {
-            return;
-        }
-
-        $activeSlug = (string) rex_be_controller::getCurrentPagePart(2);
-        $subPath = $addon->getPath('pages/values.php');
-
-        $sectionPages = [];
-        foreach (Backend::getSections() as $table => $label) {
-            $slug = Backend::sectionSlug($table);
-            $sectionPages[$slug] = (new rex_be_page($slug, $label))
-                ->setSubPath($subPath)
-                ->setIsActive($slug === $activeSlug);
-        }
-
-        $page->setSubpages($sectionPages + $page->getSubpages());
-    });
-}
-
 // A way back from the YForm table manager. "Edit fields" leads out of this
 // addon, and YForm has no idea where the visitor came from - so the link is
 // offered on its field page whenever the table is one of ours. Through
@@ -158,7 +126,7 @@ if (rex::isBackend()) {
         $subject = $ep->getSubject();
 
         return (is_string($subject) ? $subject : '') . '<p><a class="btn btn-default" href="'
-            . rex_url::backendPage('yrewrite_domain_settings/' . Backend::sectionSlug($table))
+            . rex_url::backendPage('yrewrite_domain_settings/data', ['section' => Backend::sectionSlug($table)])
             . '"><i class="rex-icon fa-arrow-left"></i> '
             . rex_i18n::msg('domain_settings_back_to_values')
             . '</a></p>';

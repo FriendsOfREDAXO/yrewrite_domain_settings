@@ -1,7 +1,12 @@
 <?php
 
 /**
- * Editing page: pick a section, a domain and a language, fill in the values.
+ * The editing page: pick a domain, then a section, then a language.
+ *
+ * The three axes are nested rather than side by side. The domain is the
+ * context everything below is edited in and sits on top; the section decides
+ * which fields are shown and is a tab row of its own; the language is the
+ * innermost step and stays inside the panel with the form.
  *
  * @var rex_addon $this
  */
@@ -26,21 +31,15 @@ if ([] === $domains) {
     return;
 }
 
-// The section is the backend page we are on, so it needs no request
-// parameter - and an unknown or forbidden slug simply has no page.
-$table = Backend::sectionBySlug((string) rex_be_controller::getCurrentPagePart(2));
-if (null === $table || !isset($sections[$table])) {
-    echo rex_view::warning(rex_i18n::msg('domain_settings_no_section_permission'));
-    return;
-}
+// Domain and language are the editing context and live in the session, so
+// they survive leaving the page and coming back. Both are validated against
+// what this user may edit before they are handed out.
+$domainId = Backend::getActiveDomainId();
 
-$domainId = rex_get('domain_id', 'int', 0);
-if (!isset($domains[$domainId])) {
-    $domainId = (int) array_key_first($domains);
-}
+echo Backend::renderDomainSwitch();
 
 // The languages depend on the domain: yrewrite decides per domain which ones
-// it serves, so the tabs are built after the domain is known.
+// it serves, so they are resolved after the domain is known.
 $clangs = Backend::getEditableClangs($domainId);
 
 if ([] === $clangs) {
@@ -50,36 +49,47 @@ if ([] === $clangs) {
 
 $clangIds = array_map(static fn (rex_clang $clang) => $clang->getId(), $clangs);
 $fallbackClangId = DomainSettings::getFallbackClangId($domainId);
-$clangId = rex_get('clang_id', 'int', 0);
-if (!in_array($clangId, $clangIds, true)) {
-    $clangId = in_array($fallbackClangId, $clangIds, true) ? $fallbackClangId : $clangIds[0];
+$clangId = Backend::getActiveClangId($domainId);
+
+// The section travels in the URL, not in the session: it is where you are on
+// this page, not the context the page is about. An unknown slug falls back to
+// the first section rather than to an error.
+$table = Backend::sectionBySlug(rex_request::get('section', 'string', ''));
+if (null === $table || !isset($sections[$table])) {
+    $table = (string) array_key_first($sections);
 }
 
-$baseParams = ['domain_id' => $domainId, 'clang_id' => $clangId];
+$baseParams = [
+    'section' => Backend::sectionSlug($table),
+    'domain_id' => $domainId,
+    'clang_id' => $clangId,
+];
 
-// ------------------------------------------------------------ domain picker
-if (count($domains) > 1) {
-    $select = new rex_select();
-    $select->setId('domain-settings-domain');
-    $select->setName('domain_id');
-    $select->setAttribute('class', 'form-control');
-    $select->setAttribute('onchange', 'this.form.submit()');
-    $select->setSelected($domainId);
-    $select->addArrayOptions($domains);
+// ------------------------------------------------------------ section tabs
+// Handed to the panel as "before" rather than echoed: the fragment puts it
+// inside the same <section>, which is what lets the active tab dock onto the
+// panel below instead of floating above it.
+$sectionTabs = '';
 
-    $body = '<form action="' . rex_url::currentBackendPage() . '" method="get">'
-        . '<input type="hidden" name="page" value="' . rex_escape(rex_be_controller::getCurrentPage()) . '">'
-        . '<input type="hidden" name="clang_id" value="' . $clangId . '">'
-        . '<div class="form-group">'
-        . '<label for="domain-settings-domain">' . rex_i18n::msg('domain_settings_domain') . '</label>'
-        . $select->get()
-        . '</div>'
-        . '</form>';
+if (count($sections) > 1) {
+    $items = '';
+    foreach ($sections as $sectionTable => $label) {
+        $isActive = $sectionTable === $table;
 
-    $fragment = new rex_fragment();
-    $fragment->setVar('title', rex_i18n::msg('domain_settings_domain'), false);
-    $fragment->setVar('body', $body, false);
-    echo $fragment->parse('core/page/section.php');
+        // btn classes for the same reason as the language tabs below - see
+        // the comment there.
+        $items .= '<li' . ($isActive ? ' class="active"' : '') . '>'
+            . '<a class="btn btn-default"'
+            . ' href="' . rex_url::currentBackendPage([
+                'section' => Backend::sectionSlug($sectionTable),
+                'domain_id' => $domainId,
+                'clang_id' => $clangId,
+            ]) . '">'
+            . rex_escape($label)
+            . '</a></li>';
+    }
+
+    $sectionTabs = '<ul class="nav nav-tabs domain-settings-tabs domain-settings-section-tabs">' . $items . '</ul>';
 }
 
 $body = '';
@@ -92,7 +102,10 @@ if (!Backend::hasFields($table)) {
     );
 
     $fragment = new rex_fragment();
-    $fragment->setVar('title', rex_i18n::msg('domain_settings_values'), false);
+    $fragment->setVar('before', $sectionTabs, false);
+    if ('' === $sectionTabs) {
+        $fragment->setVar('title', rex_escape($sections[$table]), false);
+    }
     $fragment->setVar('body', $body, false);
     echo $fragment->parse('core/page/section.php');
     return;
@@ -119,7 +132,7 @@ if (count($clangs) > 1) {
             . rex_escape($clang->getName()) . $badge
             . '</a></li>';
     }
-    $body .= '<ul class="nav nav-tabs domain-settings-language-tabs">' . $items . '</ul>';
+    $body .= '<ul class="nav nav-tabs domain-settings-tabs domain-settings-language-tabs">' . $items . '</ul>';
 }
 
 // Render first, then work out what is inherited: a save happens inside
@@ -172,8 +185,15 @@ if ([] !== $inherited) {
 
 $body .= $form;
 
+// No panel title while there are tabs: the active one already names the
+// section, and without a header the panel is one plain surface for the tabs
+// to sit on. With a single section there are no tabs, so the panel takes the
+// name itself rather than standing there unlabelled.
 $fragment = new rex_fragment();
-$fragment->setVar('title', rex_i18n::msg('domain_settings_values'), false);
+$fragment->setVar('before', $sectionTabs, false);
+if ('' === $sectionTabs) {
+    $fragment->setVar('title', rex_escape($sections[$table]), false);
+}
 $fragment->setVar('body', $body, false);
 echo $fragment->parse('core/page/section.php');
 

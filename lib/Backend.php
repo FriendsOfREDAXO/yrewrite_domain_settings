@@ -4,11 +4,14 @@ namespace FriendsOfRedaxo\DomainSettings;
 
 use rex;
 use rex_addon;
+use rex_be_controller;
 use rex_clang;
 use rex_file;
 use rex_i18n;
 use rex_logger;
 use rex_path;
+use rex_request;
+use rex_select;
 use rex_sql;
 use rex_sql_column;
 use rex_sql_index;
@@ -26,6 +29,7 @@ use rex_yrewrite_domain;
 use RuntimeException;
 
 use function array_key_exists;
+use function rex_escape;
 use function count;
 use function in_array;
 use function strlen;
@@ -85,6 +89,29 @@ final class Backend
      * @var array<string, true>
      */
     private static array $loggedSlugCollisions = [];
+
+    /**
+     * The domain being edited in this request.
+     *
+     * Resolved once: the navigation, the switcher and the form below it all
+     * ask for it, and they have to agree - otherwise the tabs would point at a
+     * different domain than the form writes to.
+     */
+    private static ?int $activeDomainId = null;
+
+    /**
+     * The language being edited, per domain.
+     *
+     * Keyed by domain because yrewrite decides per domain which languages it
+     * serves: the same session value can be valid on one and not on the next.
+     *
+     * @var array<int, int>
+     */
+    private static array $activeClangIds = [];
+
+    /** Session keys carrying the editing context from one page to the next. */
+    private const SESSION_DOMAIN = 'domain_settings_domain_id';
+    private const SESSION_CLANG = 'domain_settings_clang_id';
 
     /**
      * Every domain known to the system, as id => label.
@@ -876,5 +903,175 @@ final class Backend
         return rex_url::backendPage('yform/manager/table_field', [
             'table_name' => $table,
         ]);
+    }
+
+    /**
+     * The domain currently being edited.
+     *
+     * Request wins over session, session over the first domain the user may
+     * edit. Keeping it in the session is what makes the domain a context
+     * rather than a form field: it survives leaving the page and coming back,
+     * which a query parameter on its own does not.
+     *
+     * Returns -1 when the user may edit no domain at all. Not 0 - that is a
+     * real domain id (yrewrite's implicit default), so falling back to it
+     * would hand out write access instead of denying it.
+     */
+    public static function getActiveDomainId(): int
+    {
+        if (null !== self::$activeDomainId) {
+            return self::$activeDomainId;
+        }
+
+        $domains = self::getDomains();
+
+        if ([] === $domains) {
+            return self::$activeDomainId = -1;
+        }
+
+        $requested = self::requested('domain_id');
+        if (isset($domains[$requested])) {
+            self::remember(self::SESSION_DOMAIN, $requested);
+
+            return self::$activeDomainId = $requested;
+        }
+
+        $remembered = self::recall(self::SESSION_DOMAIN);
+        if (isset($domains[$remembered])) {
+            return self::$activeDomainId = $remembered;
+        }
+
+        return self::$activeDomainId = (int) array_key_first($domains);
+    }
+
+    /**
+     * The language currently being edited on the given domain.
+     *
+     * Resolved like the domain, but against the languages that domain serves -
+     * a language remembered from another domain simply does not apply here and
+     * gives way to the fallback language.
+     *
+     * Returns -1 when the user may edit no language of this domain.
+     */
+    public static function getActiveClangId(int $domainId): int
+    {
+        if (isset(self::$activeClangIds[$domainId])) {
+            return self::$activeClangIds[$domainId];
+        }
+
+        $clangIds = array_map(
+            static fn (rex_clang $clang) => $clang->getId(),
+            self::getEditableClangs($domainId),
+        );
+
+        if ([] === $clangIds) {
+            return self::$activeClangIds[$domainId] = -1;
+        }
+
+        $requested = self::requested('clang_id');
+        if (in_array($requested, $clangIds, true)) {
+            self::remember(self::SESSION_CLANG, $requested);
+
+            return self::$activeClangIds[$domainId] = $requested;
+        }
+
+        $remembered = self::recall(self::SESSION_CLANG);
+        if (in_array($remembered, $clangIds, true)) {
+            return self::$activeClangIds[$domainId] = $remembered;
+        }
+
+        $fallback = DomainSettings::getFallbackClangId($domainId);
+
+        return self::$activeClangIds[$domainId] = in_array($fallback, $clangIds, true)
+            ? $fallback
+            : $clangIds[0];
+    }
+
+    /**
+     * Reads an int from the query string, falling back to the posted form.
+     *
+     * Deliberately not rex_request::request(): that reads $_REQUEST, which
+     * also contains the cookies when request_order is empty in the php.ini. A
+     * cookie named domain_id would then quietly override the editing context
+     * on every single request.
+     */
+    private static function requested(string $key): int
+    {
+        $value = rex_request::get($key, 'int', -1);
+
+        return -1 === $value ? rex_request::post($key, 'int', -1) : $value;
+    }
+
+    /**
+     * Reads the editing context back from the session, if there is one.
+     *
+     * rex_request::session() throws without an active session, and the console
+     * commands reach the same helpers - see remember().
+     */
+    private static function recall(string $key): int
+    {
+        if (PHP_SESSION_ACTIVE !== session_status()) {
+            return -1;
+        }
+
+        return (int) rex_request::session($key, 'int', -1);
+    }
+
+    /**
+     * Writes the editing context to the session, if there is one.
+     *
+     * rex_request::setSession() throws without an active session. That never
+     * happens in the backend, but the console commands touch the same helpers
+     * and should not blow up over a stored preference.
+     */
+    private static function remember(string $key, int $value): void
+    {
+        if (PHP_SESSION_ACTIVE !== session_status()) {
+            return;
+        }
+
+        rex_request::setSession($key, $value);
+    }
+
+    /**
+     * The domain switcher at the top of the editing page.
+     *
+     * Deliberately not a panel: this is the context everything below it is
+     * edited in, not a setting of its own. With a single domain there is
+     * nothing to switch, so it renders nothing at all.
+     */
+    public static function renderDomainSwitch(): string
+    {
+        $domains = self::getDomains();
+
+        if (count($domains) < 2) {
+            return '';
+        }
+
+        $select = new rex_select();
+        $select->setId('domain-settings-domain');
+        $select->setName('domain_id');
+        $select->setAttribute('class', 'form-control');
+        $select->setAttribute('onchange', 'this.form.submit()');
+        $select->setSelected(self::getActiveDomainId());
+        $select->addArrayOptions($domains);
+
+        // A GET form on the current page: switching the domain is a navigation
+        // step, so it belongs in the URL and in the browser history.
+        return '<div class="domain-settings-context">'
+            . '<form action="' . rex_url::currentBackendPage() . '" method="get">'
+            . '<input type="hidden" name="page" value="' . rex_escape(rex_be_controller::getCurrentPage()) . '">'
+            // Stay in the same section across the switch where the new domain
+            // has it; the page falls back to its first section where it does not.
+            . '<input type="hidden" name="section" value="'
+            . rex_escape(rex_request::get('section', 'string', '')) . '">'
+            . '<div class="form-group">'
+            . '<label for="domain-settings-domain">' . rex_i18n::msg('domain_settings_domain') . '</label> '
+            . $select->get()
+            . '</div>'
+            . '<noscript><button class="btn btn-default" type="submit">'
+            . rex_i18n::msg('domain_settings_domain_switch') . '</button></noscript>'
+            . '</form>'
+            . '</div>';
     }
 }

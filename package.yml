@@ -1,5 +1,5 @@
 package: yrewrite_domain_settings
-version: '2.4.0'
+version: '2.5.0'
 author: Friends Of REDAXO
 supportpage: https://github.com/FriendsOfREDAXO/yrewrite_domain_settings
 
@@ -8,6 +8,12 @@ page:
     perm: yrewrite_domain_settings[]
     icon: rex-icon fa-globe
     subpages:
+        data:
+            title: translate:domain_settings_data
+            # The file keeps its name: it renders the values, the page is
+            # called "Daten" because that is what an editor looks for.
+            subPath: pages/values.php
+            icon: rex-icon fa-pencil
         settings:
             title: translate:domain_settings_settings
             perm: admin[]

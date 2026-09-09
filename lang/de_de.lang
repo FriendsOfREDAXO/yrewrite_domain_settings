@@ -1,5 +1,6 @@
 title = YRewrite Domain Settings
 domain_settings_title = Domaineinstellungen
+domain_settings_data = Daten
 domain_settings_values = Werte
 domain_settings_settings = Einstellungen
 domain_settings_help = Hilfe
@@ -59,4 +60,4 @@ domain_settings_copy_confirm = Vorhandene Werte im Ziel werden überschrieben. F
 domain_settings_copy_done = {0} Tab(s) übertragen.
 domain_settings_copy_nothing = Es gab nichts zu übertragen.
 domain_settings_copy_invalid = Quelle oder Ziel ist nicht zulässig.
-
+domain_settings_domain_switch = Wechseln

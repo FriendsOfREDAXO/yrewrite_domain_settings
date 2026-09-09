@@ -39,57 +39,57 @@
    Colours are be_style's own: panel background #202b35, body #1b232c, and the
    rule matches `legend`'s border rgba(21,28,34,.5). */
 
-.domain-settings-language-tabs {
-    border-bottom: 1px solid #ddd;
+.domain-settings-tabs {
+    border-bottom: 1px solid #dfe3e9;
     margin-bottom: 20px;
 }
 
-.domain-settings-language-tabs > li > a.btn {
+.domain-settings-tabs > li > a.btn {
     border-radius: 4px 4px 0 0;
     margin-right: 2px;
     background-color: #f0f0f0;
-    border-color: #ddd;
+    border-color: #dfe3e9;
     color: #777;
 }
 
-.domain-settings-language-tabs > li > a.btn:hover,
-.domain-settings-language-tabs > li > a.btn:focus {
+.domain-settings-tabs > li > a.btn:hover,
+.domain-settings-tabs > li > a.btn:focus {
     background-color: #e8e8e8;
     color: #333;
 }
 
 /* The active tab is a continuation of the panel: same background, and its
    bottom border repaints the rule so the two read as one surface. */
-.domain-settings-language-tabs > li.active > a.btn,
-.domain-settings-language-tabs > li.active > a.btn:hover,
-.domain-settings-language-tabs > li.active > a.btn:focus {
+.domain-settings-tabs > li.active > a.btn,
+.domain-settings-tabs > li.active > a.btn:hover,
+.domain-settings-tabs > li.active > a.btn:focus {
     background-color: #fff;
-    border-color: #ddd;
+    border-color: #dfe3e9;
     border-bottom-color: #fff;
     margin-bottom: -1px;
     color: #333;
     cursor: default;
 }
 
-body.rex-theme-dark .domain-settings-language-tabs {
+body.rex-theme-dark .domain-settings-tabs {
     border-bottom-color: rgba(21, 28, 34, .5);
 }
 
-body.rex-theme-dark .domain-settings-language-tabs > li > a.btn {
+body.rex-theme-dark .domain-settings-tabs > li > a.btn {
     background-color: #1b232c;
     border-color: rgba(21, 28, 34, .8);
     color: rgba(255, 255, 255, .45);
 }
 
-body.rex-theme-dark .domain-settings-language-tabs > li > a.btn:hover,
-body.rex-theme-dark .domain-settings-language-tabs > li > a.btn:focus {
+body.rex-theme-dark .domain-settings-tabs > li > a.btn:hover,
+body.rex-theme-dark .domain-settings-tabs > li > a.btn:focus {
     background-color: #18202a;
     color: rgba(255, 255, 255, .75);
 }
 
-body.rex-theme-dark .domain-settings-language-tabs > li.active > a.btn,
-body.rex-theme-dark .domain-settings-language-tabs > li.active > a.btn:hover,
-body.rex-theme-dark .domain-settings-language-tabs > li.active > a.btn:focus {
+body.rex-theme-dark .domain-settings-tabs > li.active > a.btn,
+body.rex-theme-dark .domain-settings-tabs > li.active > a.btn:hover,
+body.rex-theme-dark .domain-settings-tabs > li.active > a.btn:focus {
     background-color: #202b35;
     border-color: rgba(21, 28, 34, .5);
     border-bottom-color: #202b35;
@@ -97,25 +97,25 @@ body.rex-theme-dark .domain-settings-language-tabs > li.active > a.btn:focus {
 }
 
 @media (prefers-color-scheme: dark) {
-    body:not(.rex-theme-light) .domain-settings-language-tabs {
+    body:not(.rex-theme-light) .domain-settings-tabs {
         border-bottom-color: rgba(21, 28, 34, .5);
     }
 
-    body:not(.rex-theme-light) .domain-settings-language-tabs > li > a.btn {
+    body:not(.rex-theme-light) .domain-settings-tabs > li > a.btn {
         background-color: #1b232c;
         border-color: rgba(21, 28, 34, .8);
         color: rgba(255, 255, 255, .45);
     }
 
-    body:not(.rex-theme-light) .domain-settings-language-tabs > li > a.btn:hover,
-    body:not(.rex-theme-light) .domain-settings-language-tabs > li > a.btn:focus {
+    body:not(.rex-theme-light) .domain-settings-tabs > li > a.btn:hover,
+    body:not(.rex-theme-light) .domain-settings-tabs > li > a.btn:focus {
         background-color: #18202a;
         color: rgba(255, 255, 255, .75);
     }
 
-    body:not(.rex-theme-light) .domain-settings-language-tabs > li.active > a.btn,
-    body:not(.rex-theme-light) .domain-settings-language-tabs > li.active > a.btn:hover,
-    body:not(.rex-theme-light) .domain-settings-language-tabs > li.active > a.btn:focus {
+    body:not(.rex-theme-light) .domain-settings-tabs > li.active > a.btn,
+    body:not(.rex-theme-light) .domain-settings-tabs > li.active > a.btn:hover,
+    body:not(.rex-theme-light) .domain-settings-tabs > li.active > a.btn:focus {
         background-color: #202b35;
         border-color: rgba(21, 28, 34, .5);
         border-bottom-color: #202b35;
@@ -142,4 +142,101 @@ body.rex-theme-dark .domain-settings-language-tabs > li.active > a.btn:focus {
    field right after the submit, so only the spacing has to be added. */
 .domain-settings-form-actions {
     margin-left: 16px;
+}
+
+
+/* Domain switcher above the section tabs.
+
+   Not a panel: the domain is the context the page is edited in, so it reads
+   as a strip belonging to the tabs above it, not as a setting of its own. */
+
+.domain-settings-context {
+    margin: -10px 0 20px;
+    padding: 8px 0;
+}
+
+.domain-settings-context .form-group {
+    display: inline-block;
+    margin: 0;
+    vertical-align: middle;
+    /* Shrink-to-fit measures the select's own width, so label and field end up
+       on two lines without this. */
+    white-space: nowrap;
+}
+
+/* display is set explicitly: the backend puts labels on their own line, which
+   is right inside a form and wrong for a one-line context strip. */
+
+.domain-settings-context label {
+    display: inline-block;
+    margin: 0 8px 0 0;
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+/* The backend wraps every select in .rex-select-style, a block element -
+   without this the label would sit on its own line above the field. */
+
+.domain-settings-context .rex-select-style {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.domain-settings-context select {
+    display: inline-block;
+    width: auto;
+    min-width: 220px;
+    vertical-align: middle;
+}
+
+/* Section tabs: the row the panel below hangs from.
+
+   The panel provides the line the tabs sit on, so the row carries no border
+   of its own and no gap - the active tab covers that line with its own
+   background and the two read as one surface. */
+
+.domain-settings-section-tabs {
+    border-bottom: 0;
+    margin-bottom: 0;
+}
+
+.domain-settings-section-tabs > li > a.btn {
+    /* A shade heavier than the language tabs inside the panel, so two similar
+       rows still read as two levels rather than one long list. */
+    font-weight: 600;
+    padding: 7px 16px;
+    background-color: #e9edf3;
+}
+
+.domain-settings-section-tabs > li.active > a.btn {
+    /* Above the panel: without it the panel's own border is painted over the
+       tab and the seam stays visible. */
+    position: relative;
+    z-index: 1;
+}
+
+.domain-settings-section-tabs + .panel {
+    margin-top: 0;
+}
+
+body.rex-theme-dark .domain-settings-section-tabs > li.active > a.btn,
+body.rex-theme-dark .domain-settings-section-tabs > li.active > a.btn:hover,
+body.rex-theme-dark .domain-settings-section-tabs > li.active > a.btn:focus {
+    border-bottom-color: #202b35;
+}
+
+@media (prefers-color-scheme: dark) {
+    body:not(.rex-theme-light) .domain-settings-section-tabs > li.active > a.btn,
+    body:not(.rex-theme-light) .domain-settings-section-tabs > li.active > a.btn:hover,
+    body:not(.rex-theme-light) .domain-settings-section-tabs > li.active > a.btn:focus {
+        border-bottom-color: #202b35;
+    }
+}
+
+/* Language tabs a notch smaller: they are the innermost step, and sitting
+   right under the section row they would otherwise read as a second one. */
+
+.domain-settings-language-tabs > li > a.btn {
+    padding: 4px 12px;
+    font-size: 12px;
 }
