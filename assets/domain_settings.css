@@ -248,10 +248,12 @@ body.rex-theme-dark .domain-settings-section-tabs > li.active > a.btn:focus {
 }
 
 .domain-settings-context .rex-nav-language {
-    /* The core floats it right from the large breakpoint on; here the flex
-       line does the placing, so the float has to go. */
+    /* The core floats it right from the large breakpoint on and carries a
+       bottom margin for its usual place under the page header. Both throw off
+       the flex line here: the margin makes the box taller than the buttons, so
+       centring it puts them half a margin too high. */
     float: none;
-    margin-left: 0;
+    margin: 0;
 }
 
 .domain-settings-context .btn-toolbar {

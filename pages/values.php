@@ -145,17 +145,17 @@ $form = Backend::renderForm(
     $fieldsLink,
 );
 
-// "Save and switch" from the unsaved-changes dialog: the language to go to
-// rides along in the post, and only a completed save may follow it - otherwise
-// a validation error would silently drop what was typed.
+// "Save and switch" from the unsaved-changes dialog: where to go rides along
+// in the post, and only a completed save may follow it - otherwise a
+// validation error would silently drop what was typed.
 if ($saved) {
-    $gotoClangId = rex_post('domain_settings_goto_clang', 'int', 0);
+    $goto = rex_post('domain_settings_goto', 'string', '');
 
-    if (0 !== $gotoClangId && $gotoClangId !== $clangId && in_array($gotoClangId, $clangIds, true)) {
-        rex_response::sendRedirect(rex_url::currentBackendPage([
-            'domain_id' => $domainId,
-            'clang_id' => $gotoClangId,
-        ], false));
+    // The value comes from the page, so it is checked rather than trusted: a
+    // relative backend link and nothing else. That rules out another host, a
+    // protocol-relative "//evil", and a header injected through a newline.
+    if (1 === preg_match('#^index\.php\?[A-Za-z0-9_\-=&;%./+]*$#', $goto)) {
+        rex_response::sendRedirect($goto);
     }
 }
 
@@ -189,9 +189,9 @@ echo $fragment->parse('core/page/section.php');
 
 // ------------------------------------------------------- unsaved changes
 // Rendered here rather than built in JavaScript so the wording lives in the
-// language files. Bootstrap 3 markup, which is what the backend ships.
-if (count($clangs) > 1) {
-    echo '
+// language files. Bootstrap 3 markup, which is what the backend ships. Always
+// rendered: every link off this page goes through it, not just the language.
+echo '
 <div class="modal fade" id="domain-settings-unsaved-dialog" tabindex="-1" role="dialog">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
@@ -210,4 +210,3 @@ if (count($clangs) > 1) {
     </div>
   </div>
 </div>';
-}

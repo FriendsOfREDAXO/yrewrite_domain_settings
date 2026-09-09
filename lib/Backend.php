@@ -1070,8 +1070,21 @@ final class Backend
         $select = new rex_select();
         $select->setId('domain-settings-domain');
         $select->setName('domain_id');
-        $select->setAttribute('class', 'form-control');
-        $select->setAttribute('onchange', 'this.form.submit()');
+        // selectpicker: the backend's own dressed-up select, the same one the
+        // domain assignment uses in the settings. Falls back to a plain select
+        // without JavaScript.
+        $select->setAttribute('class', 'form-control selectpicker');
+        $select->setAttribute('data-width', '100%');
+
+        if (count($domains) >= 10) {
+            $select->setAttribute('data-live-search', 'true');
+        }
+
+        // No inline onchange: form.submit() fires no submit event and would
+        // leave the page before the unsaved-changes dialog gets a say. The
+        // script below takes it from here; without JavaScript the noscript
+        // button carries the switch.
+        $select->setAttribute('data-domain-settings-switch', '1');
         $select->setSelected(self::getActiveDomainId());
         $select->addArrayOptions($domains);
 

@@ -110,45 +110,123 @@
             submitting = true;
         });
 
-        // --- layer 1: our own dialog on the language tabs -----------------
+        // --- layer 1: our own dialog on every way off the page -------------
+        // Not just the language switch: the tabs, "edit fields", help and
+        // settings all lead away from an unsaved form, and the browser's own
+        // dialog cannot offer to save first.
         if (dialog && window.jQuery) {
-            var pendingClang = null;
+            var pendingHref = null;
 
-            document.querySelectorAll('.domain-settings-context a[data-clang-id]').forEach(function (link) {
-                link.addEventListener('click', function (event) {
-                    if (!isDirty()) {
+            function leavesThePage(link, event) {
+                // A new tab or window is not leaving this page.
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || 1 === event.button) {
+                    return false;
+                }
+
+                if (link.target && '_self' !== link.target) {
+                    return false;
+                }
+
+                // Anything that only acts on this page: dropdown toggles,
+                // modal triggers, in-page anchors, javascript: links.
+                if (link.hasAttribute('data-toggle') || link.hasAttribute('data-dismiss')) {
+                    return false;
+                }
+
+                var href = link.getAttribute('href');
+                if (!href || '#' === href.charAt(0) || 0 === href.toLowerCase().indexOf('javascript:')) {
+                    return false;
+                }
+
+                // The dialog's own buttons.
+                return !dialog.contains(link);
+            }
+
+            document.addEventListener('click', function (event) {
+                var link = event.target.closest ? event.target.closest('a[href]') : null;
+
+                if (!link || !leavesThePage(link, event) || !isDirty()) {
+                    return;
+                }
+
+                event.preventDefault();
+                pendingHref = {
+                    // As written in the markup: that is what the server
+                    // accepts, and it cannot carry another host.
+                    param: link.getAttribute('href'),
+                    // Resolved, for going there without saving.
+                    url: link.href
+                };
+                window.jQuery(dialog).modal('show');
+            });
+
+            // The domain switch is a select, not a link, so it needs its own
+            // way in - but it ends in the same dialog.
+            document.querySelectorAll('[data-domain-settings-switch]').forEach(function (select) {
+                select.addEventListener('change', function () {
+                    var switchForm = select.form;
+                    if (!switchForm) {
                         return;
                     }
-                    event.preventDefault();
-                    pendingClang = {
-                        id: link.getAttribute('data-clang-id'),
-                        href: link.getAttribute('href')
-                    };
+
+                    // Built from the form itself, so it carries page, section
+                    // and language along with the new domain - and stays a
+                    // relative link, which is what the server accepts.
+                    var target = 'index.php?' + new URLSearchParams(new FormData(switchForm)).toString();
+
+                    if (!isDirty()) {
+                        submitting = true;
+                        window.location.href = target;
+                        return;
+                    }
+
+                    pendingHref = {param: target, url: target};
                     window.jQuery(dialog).modal('show');
                 });
             });
 
             dialog.querySelector('[data-domain-settings-action="save"]').addEventListener('click', function () {
-                if (!pendingClang) {
+                if (!pendingHref) {
                     return;
                 }
-                // Tell the page where to go after saving. Only the language id
-                // travels, never a URL - the target is built server-side.
+
+                // Where to go after saving. The value is a URL now rather than
+                // a language id, so the server checks it before following it -
+                // see pages/values.php.
                 var goto = document.createElement('input');
                 goto.type = 'hidden';
-                goto.name = 'domain_settings_goto_clang';
-                goto.value = pendingClang.id;
+                goto.name = 'domain_settings_goto';
+                goto.value = pendingHref.param;
                 form.appendChild(goto);
                 submitting = true;
                 form.submit();
             });
 
+            // Cancelling leaves the page as it was, so the select must not
+            // keep showing a domain that is not being edited.
+            window.jQuery(dialog).on('hidden.bs.modal', function () {
+                if (!pendingHref) {
+                    return;
+                }
+                document.querySelectorAll('[data-domain-settings-switch]').forEach(function (select) {
+                    if (!select.form) {
+                        return;
+                    }
+                    select.form.reset();
+                    // The dressed-up select keeps its own label, so it has to
+                    // be told that the value underneath went back.
+                    if (window.jQuery && window.jQuery(select).selectpicker) {
+                        window.jQuery(select).selectpicker('refresh');
+                    }
+                });
+            });
+
             dialog.querySelector('[data-domain-settings-action="discard"]').addEventListener('click', function () {
-                if (!pendingClang) {
+                if (!pendingHref) {
                     return;
                 }
                 submitting = true;
-                window.location.href = pendingClang.href;
+                window.location.href = pendingHref.url;
             });
         }
 

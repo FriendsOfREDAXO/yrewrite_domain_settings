@@ -133,6 +133,60 @@ if (rex::isBackend()) {
     });
 }
 
+// YForm offers to turn every column without a field into one - including
+// domain_id and clang_id, which are deliberately plain columns: their values
+// decide which row is being written, so letting a form supply them would let a
+// crafted post write into another domain. Following that offer and later
+// deleting the field "with its column" would take the addon's own structure
+// with it, so the box is removed on our tables.
+//
+// Through the output rather than an extension point because YForm has none
+// here, and the heading is hardcoded there (lib/manager/manager.php). If that
+// text ever changes the box simply reappears - nothing breaks.
+if (rex::isBackend()) {
+    rex_extension::register('OUTPUT_FILTER', static function (rex_extension_point $ep) {
+        if ('yform/manager/table_field' !== rex_be_controller::getCurrentPage()) {
+            return null;
+        }
+
+        $table = rex_request('table_name', 'string', '');
+
+        if (!array_key_exists($table, Backend::getAllSections())) {
+            return null;
+        }
+
+        $subject = (string) $ep->getSubject();
+        $before = $subject;
+
+        // The offer to turn domain_id and clang_id into fields.
+        $heading = 'Es gibt noch Felder in der Tabelle welche nicht zugewiesen sind.';
+
+        if (str_contains($subject, $heading)) {
+            $subject = preg_replace(
+                '#<section[^>]*class="[^"]*rex-page-section[^"]*"[^>]*>(?:(?!</section>).)*?'
+                . preg_quote($heading, '#')
+                . '.*?</section>#s',
+                '',
+                $subject,
+                1,
+            ) ?? $subject;
+        }
+
+        // And the button next to it: "update with field deletion" drops every
+        // column without a field except id (yform, table/api.php,
+        // generateTableAndFields with $delete_old). On these tables that is
+        // domain_id and clang_id - the row keys - so one click would take the
+        // stored values with them.
+        $subject = preg_replace(
+            '#<a[^>]+func=updatetablewithdelete[^>]*>.*?</a>#s',
+            '',
+            $subject,
+        ) ?? $subject;
+
+        return $subject === $before ? null : $subject;
+    });
+}
+
 // Expose the values over the api addon when it is installed. Guarded rather
 // than declared as a dependency: the addon works without it, and because this
 // runs on every request the routes appear as soon as api is installed - no

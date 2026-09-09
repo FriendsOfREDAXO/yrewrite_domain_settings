@@ -220,11 +220,15 @@ $body = '<p>' . rex_i18n::msg('domain_settings_sections_notice') . '</p>'
     . $hidden
     . '<input type="hidden" name="func" value="add">'
     . $csrf->getHiddenField()
+    . '<div class="row">'
+    . '<div class="' . ($hasDomains ? 'col-sm-6' : 'col-sm-12') . '">'
     . '<div class="form-group">'
     . '<label for="domain-settings-section-label">' . rex_i18n::msg('domain_settings_section_label') . '</label>'
     . '<input class="form-control" type="text" id="domain-settings-section-label" name="section_label" value="" required>'
     . '</div>'
-    . $newSectionDomains
+    . '</div>'
+    . ($hasDomains ? '<div class="col-sm-6">' . $newSectionDomains . '</div>' : '')
+    . '</div>'
     . '<button class="btn btn-save" type="submit">' . rex_i18n::msg('domain_settings_section_add') . '</button>'
     . '</form>';
 

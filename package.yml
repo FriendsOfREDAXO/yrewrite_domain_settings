@@ -17,7 +17,6 @@ page:
         settings:
             title: translate:domain_settings_settings
             perm: admin[]
-            itemClass: 'pull-right'
             icon: rex-icon fa-cog
         help:
             title: translate:domain_settings_help
