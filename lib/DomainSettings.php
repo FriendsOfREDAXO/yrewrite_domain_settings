@@ -423,7 +423,13 @@ final class DomainSettings
                     continue;
                 }
 
-                if (isset($seen[$key]) && $seen[$key] !== $table) {
+                // Only a real clash counts: sections assigned to different
+                // domains never answer for the same domain, so they may carry
+                // the same field name.
+                if (isset($seen[$key])
+                    && $seen[$key] !== $table
+                    && Backend::sectionsShareDomain($seen[$key], $table)
+                ) {
                     $duplicates[$key] = true;
                 }
 
@@ -439,7 +445,20 @@ final class DomainSettings
 
                 $row = array_map(static fn ($value) => (string) $value, $row);
 
-                $data[$domainId][$clangId] = ($data[$domainId][$clangId] ?? []) + $row;
+                $data[$domainId][$clangId] ??= [];
+
+                foreach ($row as $key => $value) {
+                    // A filled value beats an empty one from another section,
+                    // whichever was read first. Opening a tab writes an empty
+                    // row even where that tab is not used, and with `+` such a
+                    // placeholder would shadow real content further down the
+                    // list of sections.
+                    if (!isset($data[$domainId][$clangId][$key])
+                        || self::isEmpty($data[$domainId][$clangId][$key])
+                    ) {
+                        $data[$domainId][$clangId][$key] = $value;
+                    }
+                }
             }
         }
 

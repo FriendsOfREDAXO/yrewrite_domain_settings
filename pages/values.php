@@ -52,12 +52,23 @@ $clangIds = array_map(static fn (rex_clang $clang) => $clang->getId(), $clangs);
 $fallbackClangId = DomainSettings::getFallbackClangId($domainId);
 $clangId = Backend::getActiveClangId($domainId);
 
+// Tabs assigned to this domain. The assignment narrows what is offered here;
+// the permission that decides what may be edited at all is YForm's, applied
+// in getSections() either way.
+$available = Backend::getSections($domainId);
+
+if ([] === $available) {
+    echo rex_view::warning(rex_i18n::rawMsg('domain_settings_no_section_for_domain', $domains[$domainId] ?? ''));
+    return;
+}
+
 // The section travels in the URL, not in the session: it is where you are on
-// this page, not the context the page is about. An unknown slug falls back to
-// the first section rather than to an error.
+// this page, not the context the page is about. An unknown slug - or one this
+// domain does not offer - falls back to the first available tab rather than
+// to an error.
 $table = Backend::sectionBySlug(rex_request::get('section', 'string', ''));
-if (null === $table || !isset($sections[$table])) {
-    $table = (string) array_key_first($sections);
+if (null === $table || !isset($available[$table])) {
+    $table = (string) array_key_first($available);
 }
 
 $baseParams = [
@@ -74,9 +85,9 @@ echo Backend::renderContextBar($domainId, ['section' => Backend::sectionSlug($ta
 // panel below instead of floating above it.
 $sectionTabs = '';
 
-if (count($sections) > 1) {
+if (count($available) > 1) {
     $items = '';
-    foreach ($sections as $sectionTable => $label) {
+    foreach ($available as $sectionTable => $label) {
         $isActive = $sectionTable === $table;
 
         // btn classes for the same reason as the language tabs below - see

@@ -6,6 +6,7 @@ use rex;
 use rex_addon;
 use rex_be_controller;
 use rex_clang;
+use rex_config;
 use rex_file;
 use rex_fragment;
 use rex_i18n;
@@ -109,6 +110,9 @@ final class Backend
      * @var array<int, int>
      */
     private static array $activeClangIds = [];
+
+    /** Config key holding the section-to-domain assignment. */
+    private const CONFIG_SECTION_DOMAINS = 'section_domains';
 
     /** Session keys carrying the editing context from one page to the next. */
     private const SESSION_DOMAIN = 'domain_settings_domain_id';
@@ -362,7 +366,7 @@ final class Backend
      *
      * @return array<string, string>
      */
-    public static function getSections(): array
+    public static function getSections(?int $domainId = null): array
     {
         $user = rex::getUser();
 
@@ -381,7 +385,7 @@ final class Backend
 
         return array_filter(
             $sections,
-            static function (string $table) use ($perm, $base) {
+            static function (string $table) use ($perm, $base, $domainId) {
                 // A section keyed like one of the static subpages would push
                 // that page out of the navigation - `settings` takes the very
                 // page it could be deleted from with it. Filtered here rather
@@ -391,7 +395,13 @@ final class Backend
                     return false;
                 }
 
-                return $perm->hasPerm($table);
+                if (!$perm->hasPerm($table)) {
+                    return false;
+                }
+
+                // The domain assignment narrows what is offered, it never
+                // widens it: the permission above has the last word either way.
+                return null === $domainId || self::isSectionVisibleForDomain($table, $domainId);
             },
             ARRAY_FILTER_USE_KEY,
         );
@@ -505,6 +515,14 @@ final class Backend
         // instance pool, so a later ensure() on the same name would create the
         // table instead of trying to alter one it still believes exists.
         rex_sql_table::get($table)->drop();
+
+        // Drop the domain assignment with it, otherwise a section created
+        // under the same name later would inherit a limit nobody set.
+        $assignment = self::getSectionDomains();
+        if (array_key_exists($table, $assignment)) {
+            unset($assignment[$table]);
+            rex_config::set(DomainSettings::ADDON, self::CONFIG_SECTION_DOMAINS, $assignment);
+        }
 
         self::resetCaches();
         DomainSettings::deleteCache();
@@ -1158,5 +1176,135 @@ final class Backend
             . $domainSwitch
             . $clangButtons
             . '</div>';
+    }
+
+    /**
+     * Section to domain assignment, as table name => list of domain ids.
+     *
+     * A section without an entry shows up on every domain, which is both the
+     * sensible reading of "nothing picked" and what keeps installations that
+     * never touch the setting working exactly as before.
+     *
+     * @return array<string, list<int>>
+     */
+    public static function getSectionDomains(): array
+    {
+        $config = rex_config::get(DomainSettings::ADDON, self::CONFIG_SECTION_DOMAINS, []);
+
+        return is_array($config) ? $config : [];
+    }
+
+    /**
+     * Domains one section is limited to. An empty list means every domain.
+     *
+     * @return list<int>
+     */
+    public static function getSectionDomainIds(string $table): array
+    {
+        $ids = self::getSectionDomains()[$table] ?? [];
+
+        return array_values(array_map(intval(...), (array) $ids));
+    }
+
+    /**
+     * Limits a section to the given domains. An empty list lifts the limit.
+     *
+     * @param array<int|string> $domainIds
+     */
+    public static function setSectionDomains(string $table, array $domainIds): void
+    {
+        // The table name arrives from a request, so it has to be one of ours
+        // before it becomes a config key.
+        if (!array_key_exists($table, self::getAllSections())) {
+            return;
+        }
+
+        $known = self::getDomains();
+
+        $ids = [];
+        foreach ($domainIds as $id) {
+            $id = (int) $id;
+            if (array_key_exists($id, $known)) {
+                $ids[$id] = $id;
+            }
+        }
+
+        // Picking every domain is stored as picking none. Otherwise a domain
+        // added later would silently hide every section that was "assigned to
+        // all of them" at the time.
+        if (count($ids) === count($known)) {
+            $ids = [];
+        }
+
+        $config = self::getSectionDomains();
+
+        if ([] === $ids) {
+            unset($config[$table]);
+        } else {
+            $config[$table] = array_values($ids);
+        }
+
+        rex_config::set(DomainSettings::ADDON, self::CONFIG_SECTION_DOMAINS, $config);
+    }
+
+    /**
+     * Whether two sections are ever offered on the same domain.
+     *
+     * The key namespace is shared, but only within a domain: two sections
+     * assigned to different domains may well carry the same field name,
+     * because only one of them ever answers for a given domain.
+     */
+    public static function sectionsShareDomain(string $a, string $b): bool
+    {
+        $idsA = self::getSectionDomainIds($a);
+        $idsB = self::getSectionDomainIds($b);
+
+        // An unassigned section is offered everywhere, so it overlaps with
+        // anything.
+        if ([] === $idsA || [] === $idsB) {
+            return true;
+        }
+
+        return [] !== array_intersect($idsA, $idsB);
+    }
+
+    /** Whether a section is meant to be edited on the given domain. */
+    public static function isSectionVisibleForDomain(string $table, int $domainId): bool
+    {
+        $ids = self::getSectionDomainIds($table);
+
+        return [] === $ids || in_array($domainId, $ids, true);
+    }
+
+    /**
+     * Whether a section holds any value for the given domain.
+     *
+     * Used before taking a domain away from a section: the rows stay behind
+     * and keep answering getValue() in the frontend, so the editor should hear
+     * about it rather than find out months later.
+     */
+    public static function sectionHasValues(string $table, int $domainId): bool
+    {
+        if (!array_key_exists($table, self::getAllSections())) {
+            return false;
+        }
+
+        $sql = rex_sql::factory();
+        $rows = $sql->getArray(
+            'SELECT * FROM ' . $sql->escapeIdentifier($table) . ' WHERE domain_id = :domain',
+            ['domain' => $domainId],
+        );
+
+        foreach ($rows as $row) {
+            unset($row['id'], $row['domain_id'], $row['clang_id']);
+
+            foreach ($row as $value) {
+                if (null !== $value && '' !== $value) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

@@ -73,29 +73,98 @@ if ('' !== $func) {
             echo rex_view::warning(rex_i18n::msg('domain_settings_section_invalid'));
         }
     } elseif ('rename' === $func) {
-        $renamed = 0;
+        $failed = 0;
         /** @var array<string, string> $labels */
         $labels = (array) rex_post('section_labels', 'array', []);
+        /** @var array<string, list<string>> $assigned */
+        $assigned = (array) rex_post('section_domains', 'array', []);
+        $allDomains = Backend::getDomains();
+        $orphaned = [];
+
         foreach ($labels as $table => $label) {
-            if (Backend::renameSection((string) $table, (string) $label)) {
-                ++$renamed;
+            $table = (string) $table;
+
+            if (!Backend::renameSection($table, (string) $label)) {
+                ++$failed;
+            }
+
+            if (count($allDomains) < 2) {
+                continue;
+            }
+
+            // An empty assignment means every domain, so both sides are
+            // compared as the set of domains the section actually shows up on.
+            $before = Backend::getSectionDomainIds($table);
+            $before = [] === $before ? array_keys($allDomains) : $before;
+
+            Backend::setSectionDomains($table, (array) ($assigned[$table] ?? []));
+
+            $after = Backend::getSectionDomainIds($table);
+            $after = [] === $after ? array_keys($allDomains) : $after;
+
+            // Taking a domain away only hides the tab - the rows stay and keep
+            // answering in the frontend. Worth saying out loud, it is the one
+            // thing about this setting that surprises.
+            foreach (array_diff($before, $after) as $domainId) {
+                if (Backend::sectionHasValues($table, (int) $domainId)) {
+                    $orphaned[] = Backend::getAllSections()[$table] . ' / ' . ($allDomains[$domainId] ?? $domainId);
+                }
             }
         }
-        echo $renamed > 0
+
+        // Tied to what actually failed, not to what was renamed: this form
+        // saves the domain assignment as well, and that is written even when
+        // no label changed.
+        echo 0 === $failed
             ? rex_view::success(rex_i18n::msg('domain_settings_sections_saved'))
             : rex_view::warning(rex_i18n::msg('domain_settings_section_invalid'));
+
+        if ([] !== $orphaned) {
+            echo rex_view::warning(rex_i18n::rawMsg('domain_settings_section_domain_orphaned', implode(', ', $orphaned)));
+        }
     }
 }
 
 // ---------------------------------------------------------------------- tabs
+$allDomains = Backend::getDomains();
+$hasDomains = count($allDomains) > 1;
+
 $rows = '';
 foreach (Backend::getAllSections() as $table => $label) {
     $count = count(rex_yform_manager_table::get($table)?->getValueFields() ?? []);
+
+    $domainCell = '';
+    if ($hasDomains) {
+        // No selection at all is stored as "every domain", so every domain is
+        // ticked when nothing is configured. The editor then unticks what a
+        // tab is not needed for, which reads the way it behaves.
+        $selected = Backend::getSectionDomainIds($table);
+        $selected = [] === $selected ? array_keys($allDomains) : $selected;
+
+        $select = new rex_select();
+        $select->setName('section_domains[' . rex_escape($table) . '][]');
+        $select->setId('domain-settings-domains-' . rex_escape(Backend::sectionSlug($table)));
+        // selectpicker turns it into the dropdown with a tick per entry that
+        // YForm uses; bootstrap-select ships with the backend, so nothing has
+        // to be loaded here. Without JavaScript it stays a plain multiple
+        // select and still works.
+        $select->setAttribute('class', 'form-control selectpicker');
+        $select->setAttribute('data-selected-text-format', 'count > 1');
+        $select->setAttribute('data-actions-box', 'true');
+        $select->setAttribute('data-width', '100%');
+        $select->setAttribute('title', rex_i18n::msg('domain_settings_section_domains_none'));
+        $select->setMultiple(true);
+        $select->setSelected($selected);
+        $select->addArrayOptions($allDomains);
+
+        $domainCell = '<td class="domain-settings-section-domains">' . $select->get() . '</td>';
+    }
 
     $rows .= '<tr>'
         . '<td><input class="form-control" type="text" name="section_labels[' . rex_escape($table) . ']"'
         . ' value="' . rex_escape($label) . '" required>'
         . '<small class="text-muted">' . rex_escape($table) . '</small></td>'
+        . $domainCell
         . '<td>' . rex_i18n::msg('domain_settings_field_count', $count) . '</td>'
         . '<td class="rex-table-action"><a class="btn btn-default" href="' . Backend::getFieldsUrl($table) . '">'
         . '<i class="rex-icon fa-list"></i> ' . rex_i18n::msg('domain_settings_edit_fields') . '</a></td>'
@@ -137,7 +206,16 @@ $body .= '<form class="domain-settings-sections" action="' . rex_url::currentBac
     . '<input type="hidden" name="func" value="rename">'
     . $csrf->getHiddenField()
     . '<fieldset><legend>' . rex_i18n::msg('domain_settings_sections_existing') . '</legend>'
-    . '<table class="table table-hover"><tbody>' . $rows . '</tbody></table>'
+    . '<table class="table table-hover">'
+    . ($hasDomains
+        ? '<thead><tr>'
+            . '<th>' . rex_i18n::msg('domain_settings_section_label') . '</th>'
+            . '<th>' . rex_i18n::msg('domain_settings_section_domains') . '</th>'
+            . '<th colspan="3"></th>'
+            . '</tr></thead>'
+        : '')
+    . '<tbody>' . $rows . '</tbody></table>'
+    . ($hasDomains ? '<p class="help-block">' . rex_i18n::msg('domain_settings_section_domains_notice') . '</p>' : '')
     . '<button class="btn btn-save" type="submit">' . rex_i18n::msg('domain_settings_sections_save') . '</button>'
     . '</fieldset>'
     . '</form>';
