@@ -74,9 +74,11 @@ rex_extension::register('CLANG_DELETED', static function (rex_extension_point $e
 
     $clangId = (int) $clangIdParam;
 
+    $sql = rex_sql::factory();
+
     foreach (array_keys(Backend::getAllSections()) as $table) {
-        rex_sql::factory()->setQuery(
-            'DELETE FROM ' . rex_sql::factory()->escapeIdentifier($table) . ' WHERE clang_id = :clang',
+        $sql->setQuery(
+            'DELETE FROM ' . $sql->escapeIdentifier($table) . ' WHERE clang_id = :clang',
             ['clang' => $clangId],
         );
     }

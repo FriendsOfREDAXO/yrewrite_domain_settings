@@ -9,7 +9,12 @@ use FriendsOfRedaxo\DomainSettings\Test\Assert;
 use FriendsOfRedaxo\DomainSettings\Test\Fixtures;
 use rex;
 use rex_sql;
+use rex_sql_column;
+use rex_sql_table;
 use rex_yform_manager_table;
+use rex_yform_manager_table_api;
+
+use function array_key_exists;
 
 /** Creating, renaming, deleting and recognising sections. */
 class SectionsSuite extends AbstractSuite
@@ -103,6 +108,46 @@ class SectionsSuite extends AbstractSuite
                 Backend::createSection($label),
                 'a section called "' . $label . '" must be refused',
             );
+        }
+    }
+
+    /**
+     * A reserved key made by hand stays out of the navigation.
+     *
+     * createSection() refuses those labels, but the YForm table manager takes
+     * the same route - and the addon documents sections as ordinary YForm
+     * tables. What must not happen is that such a table takes over the admin
+     * page; what must still happen is that it can be found and deleted.
+     */
+    public function testReservedSlugMadeByHandIsKeptOutOfTheNavigation(): void
+    {
+        $table = rex::getTable(DomainSettings::ADDON) . '_settings';
+
+        if (null !== rex_yform_manager_table::get($table)) {
+            Assert::skip('a section with the reserved key `settings` already exists here');
+        }
+
+        rex_sql_table::get($table)
+            ->ensurePrimaryIdColumn()
+            ->ensureColumn(new rex_sql_column('domain_id', 'int(10) unsigned', false, '0'))
+            ->ensureColumn(new rex_sql_column('clang_id', 'int(10) unsigned', false, '0'))
+            ->ensure();
+        rex_yform_manager_table_api::setTable(['table_name' => $table, 'name' => 'Reserved', 'hidden' => 1]);
+        Backend::resetCaches();
+
+        try {
+            Assert::true(
+                array_key_exists($table, Backend::getAllSections()),
+                'it stays a section, so it can still be read and deleted',
+            );
+            Assert::false(
+                array_key_exists($table, Backend::getSections()),
+                'but it must not reach the navigation',
+            );
+        } finally {
+            rex_yform_manager_table_api::removeTable($table);
+            rex_sql_table::get($table)->drop();
+            Backend::resetCaches();
         }
     }
 }

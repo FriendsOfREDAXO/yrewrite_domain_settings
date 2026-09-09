@@ -28,10 +28,13 @@ use function is_scalar;
  * mechanism.
  *
  * All domains and languages share one cache file, read lazily on first
- * access - requests that never ask for a value pay nothing. Measured: 16 KB
- * and 0.05 ms per request at three domains, 560 KB and 1.3 ms at ten. From
- * about ten domains on, splitting the file per domain starts to pay off;
- * isMediaInUse() would then need its own way to see all of them.
+ * access - requests that never ask for a value pay nothing. Two measured
+ * points, deliberately far apart: a typical installation (3 domains, 2
+ * languages, 40 fields) reads 16 KB in 0.05 ms; a deliberately extreme one
+ * (10 domains, 5 languages, 8 sections, 152 fields with 60 characters each)
+ * reads 560 KB in 1.3 ms. Around the upper end, splitting the file per domain
+ * starts to pay off - isMediaInUse() would then need its own way to see all
+ * of them.
  */
 final class DomainSettings
 {
@@ -150,6 +153,12 @@ final class DomainSettings
      */
     public static function rowsByClang(string $table, int $domainId, array $clangIds): array
     {
+        if ([] === $clangIds) {
+            // where('clang_id', []) builds `IN ()`, which is a syntax error
+            // rather than an empty result.
+            return [];
+        }
+
         $rows = [];
 
         $datasets = rex_yform_manager_dataset::query($table)

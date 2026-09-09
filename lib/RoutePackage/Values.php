@@ -92,7 +92,7 @@ class Values extends RoutePackage
                     ['_controller' => self::class . '::handleWrite', 'query' => $query, 'Body' => $body, 'section' => $table],
                     [], [], '', [], ['PATCH'],
                 ),
-                sprintf('Update global values of section "%s", for any domain and language', $label),
+                sprintf('Update global values of section "%s". domain_id is required, clang_id defaults to the fallback language', $label),
                 null,
                 new BearerAuth(),
             );
@@ -146,7 +146,7 @@ class Values extends RoutePackage
      */
     public static function handleWrite($Parameter): Response
     {
-        [$domainId, $clangId, $error] = self::resolveContext($Parameter);
+        [$domainId, $clangId, $error] = self::resolveContext($Parameter, true);
 
         if (null !== $error) {
             return $error;
@@ -200,13 +200,13 @@ class Values extends RoutePackage
      *
      * @return array{int, int, JsonResponse|null}
      */
-    private static function resolveContext($Parameter): array
+    private static function resolveContext($Parameter, bool $requireDomain = false): array
     {
         // The query string, nothing else. $_REQUEST would also carry cookies
         // depending on request_order, and the request body would arrive here
-        // too - Symfony parses a PATCH body into the request bag when the
-        // content type is missing. Both routes declare domain_id and clang_id
-        // as query parameters; the body carries the values to write.
+        // too - Symfony parses a form-encoded PATCH body into the request bag.
+        // Both routes declare domain_id and clang_id as query parameters; the
+        // body carries the values to write.
         $query = RouteCollection::getQuerySet(
             rex::getRequest()->query->all(),
             $Parameter['query'],
@@ -228,6 +228,16 @@ class Values extends RoutePackage
         $domains = Backend::getAllDomains();
 
         if (0 === $domainId) {
+            // Reading without a domain is a convenience; writing without one
+            // is a mistake. A client written against an earlier 2.4.0 could
+            // omit it without effect - it landed on domain 0, which the
+            // frontend never reads once domains are configured. Resolving it
+            // to the first domain would silently turn that same request into
+            // an overwrite of live content.
+            if ($requireDomain) {
+                return [0, 0, new JsonResponse(['error' => 'domain_id is required for writes'], 400)];
+            }
+
             $domainId = (int) array_key_first($domains);
         } elseif (!isset($domains[$domainId])) {
             // Without this a write request could create rows for domains that

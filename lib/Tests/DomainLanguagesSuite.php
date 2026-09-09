@@ -41,10 +41,19 @@ final class DomainLanguagesSuite extends AbstractSuite
 
     public function testUnrestrictedDomainOffersEveryEditableLanguage(): void
     {
-        Assert::same(
-            array_map(static fn (rex_clang $c) => $c->getId(), Backend::getEditableClangs()),
-            array_map(static fn (rex_clang $c) => $c->getId(), Backend::getEditableClangs(Fixtures::DOMAIN_ID)),
-        );
+        // getEditableClangs() is fail-closed: without a logged-in user it is
+        // empty, and the console has none. Comparing two empty lists would
+        // pass without testing anything, so borrow an administrator.
+        $ran = $this->fixtures->withAdminUser(static function (): void {
+            Assert::same(
+                array_map(static fn (rex_clang $c) => $c->getId(), Backend::getEditableClangs()),
+                array_map(static fn (rex_clang $c) => $c->getId(), Backend::getEditableClangs(Fixtures::DOMAIN_ID)),
+            );
+        });
+
+        if (!$ran) {
+            Assert::skip('no administrator on this instance to run the permission path with');
+        }
     }
 
     /** Every language a domain reports has to exist in the core. */
@@ -60,18 +69,24 @@ final class DomainLanguagesSuite extends AbstractSuite
     /** The tabs of a domain never show a language that domain does not serve. */
     public function testEditableLanguagesStayInsideTheDomain(): void
     {
-        foreach (array_keys(Backend::getAllDomains()) as $domainId) {
-            $available = Backend::getDomainClangIds($domainId);
-            if ([] === $available) {
-                continue;
-            }
+        $ran = $this->fixtures->withAdminUser(static function (): void {
+            foreach (array_keys(Backend::getAllDomains()) as $domainId) {
+                $available = Backend::getDomainClangIds($domainId);
+                if ([] === $available) {
+                    continue;
+                }
 
-            foreach (Backend::getEditableClangs($domainId) as $clang) {
-                Assert::true(
-                    in_array($clang->getId(), $available, true),
-                    'domain ' . $domainId . ' must not offer clang ' . $clang->getId(),
-                );
+                foreach (Backend::getEditableClangs($domainId) as $clang) {
+                    Assert::true(
+                        in_array($clang->getId(), $available, true),
+                        'domain ' . $domainId . ' must not offer clang ' . $clang->getId(),
+                    );
+                }
             }
+        });
+
+        if (!$ran) {
+            Assert::skip('no administrator on this instance to run the permission path with');
         }
     }
 

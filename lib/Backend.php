@@ -7,6 +7,7 @@ use rex_addon;
 use rex_clang;
 use rex_file;
 use rex_i18n;
+use rex_logger;
 use rex_path;
 use rex_sql;
 use rex_sql_column;
@@ -83,6 +84,9 @@ final class Backend
      * Without yrewrite there is exactly one entry: domain 0, the whole site.
      * yrewrite's implicit `default` domain has no id and therefore also maps
      * to 0, so both cases line up.
+     *
+     * Never returns an empty array - the REST routes rely on that when they
+     * resolve a missing domain_id to the first entry.
      *
      * @return array<int, string>
      */
@@ -240,6 +244,8 @@ final class Backend
 
         $base = rex::getTable(DomainSettings::ADDON);
         $sections = [];
+        // The base table claims `main` before anything else can.
+        $slugs = ['main' => true];
 
         foreach (rex_yform_manager_table::getAll() as $table) {
             $name = $table->getTableName();
@@ -258,12 +264,23 @@ final class Backend
                 continue;
             }
 
-            // Enforced here as well, not only in createSection(): a table
-            // created by hand in the YForm table manager takes the same route,
-            // and a section keyed `settings` would push out the admin page.
-            if ($name !== $base && in_array(self::sectionSlug($name), self::RESERVED_SLUGS, true)) {
+            // Two sections with the same key would be genuinely ambiguous:
+            // one tab would show the other's values, and their API scopes
+            // would overwrite each other. The base table wins, everything
+            // else is first come, first served - and said out loud, because
+            // the section simply would not appear otherwise.
+            $slug = self::sectionSlug($name);
+
+            if ($name !== $base && isset($slugs[$slug])) {
+                rex_logger::factory()->warning(
+                    'domain_settings: section {table} is ignored, another section already uses the key {slug}',
+                    ['table' => $name, 'slug' => $slug],
+                );
+
                 continue;
             }
+
+            $slugs[$slug] = true;
 
             $sections[$name] = $table->getNameLocalized();
         }
@@ -312,9 +329,22 @@ final class Backend
             return [];
         }
 
+        $base = rex::getTable(DomainSettings::ADDON);
+
         return array_filter(
             $sections,
-            static fn (string $table) => $perm->hasPerm($table),
+            static function (string $table) use ($perm, $base) {
+                // A section keyed like one of the static subpages would push
+                // that page out of the navigation - `settings` takes the very
+                // page it could be deleted from with it. Filtered here rather
+                // than in getAllSections(), so such a table stays readable,
+                // listable and above all deletable.
+                if ($table !== $base && in_array(self::sectionSlug($table), self::RESERVED_SLUGS, true)) {
+                    return false;
+                }
+
+                return $perm->hasPerm($table);
+            },
             ARRAY_FILTER_USE_KEY,
         );
     }
@@ -672,13 +702,20 @@ final class Backend
         $insert->insert();
         $id = (int) $insert->getLastId();
 
-        // No deleteCache() here on purpose. The new row carries the column
-        // defaults, and none of YForm's shipped value types declares one at
-        // schema level - so every value is '' or null, which isEmpty() treats
-        // exactly like a missing row. The resolved result does not change,
-        // while dropping the cache would, because this runs on every visit to
-        // the editing page. A custom field type with a real database default
-        // would break that assumption; the next save drops the cache anyway.
+        DomainSettings::deleteCache();
+
+        // The new row is not necessarily empty, so the cache has to go. YForm
+        // gives columns a real database default through the `preDefault` hook
+        // (yform/lib/manager/table/api.php), and two shipped value types use
+        // it: `text` passes the default configured in the table manager
+        // through, and `checkbox` always returns '0' or '1'. Verified against
+        // a generated table: a fresh row comes out as flag='0', txt='vorgabe'
+        // - and '0' is deliberately not empty here, that is how an unchecked
+        // checkbox is stored.
+        //
+        // This costs one rebuild per combination of section, domain and
+        // language, once, when it is first opened - not per page view: every
+        // later visit finds the row above and returns before reaching this.
         $dataset = rex_yform_manager_dataset::get($id, $table);
 
         if (null === $dataset) {
@@ -771,12 +808,12 @@ final class Backend
 
         $labels = [];
         foreach ($managerTable->getValueFields() as $field) {
-            $name = $field->getName();
+            $name = (string) $field->getName();
             $isEmptyHere = !isset($current[$name]) || '' === $current[$name];
             $isFilledThere = isset($fallback[$name]) && '' !== $fallback[$name];
 
             if ($isEmptyHere && $isFilledThere) {
-                $labels[] = (string) ($field->getLabel() ?: $name);
+                $labels[] = (string) $field->getLabel() ?: $name;
             }
         }
 

@@ -6,7 +6,9 @@ use FriendsOfRedaxo\DomainSettings\Backend;
 use FriendsOfRedaxo\DomainSettings\DomainSettings;
 use rex;
 use rex_clang;
+use rex_sql;
 use rex_sql_table;
+use rex_user;
 use rex_yform_manager_table;
 use rex_yform_manager_table_api;
 use RuntimeException;
@@ -95,6 +97,8 @@ final class Fixtures
         }
 
         // Through rex_sql_table so its instance pool learns the table is gone.
+        // The name comes from createSection(), which never returns an empty
+        // string - the check is here because rex_sql_table::get() asks for it.
         if ('' !== $table) {
             rex_sql_table::get($table)->drop();
         }
@@ -111,6 +115,40 @@ final class Fixtures
         }
 
         return $this->table;
+    }
+
+    /**
+     * Runs a callback with an administrator in place.
+     *
+     * The console has no user, and the permission filters are fail-closed -
+     * without this, every test that touches them would compare two empty
+     * lists and pass without asking anything. Returns false when the instance
+     * has no administrator to borrow.
+     */
+    public function withAdminUser(callable $callback): bool
+    {
+        $previous = rex::getUser();
+
+        if (null === $previous) {
+            $sql = rex_sql::factory();
+            $sql->setQuery(
+                'SELECT id FROM ' . rex::getTable('user') . ' WHERE admin = 1 AND status = 1 ORDER BY id LIMIT 1',
+            );
+
+            if (0 === $sql->getRows()) {
+                return false;
+            }
+
+            rex::setProperty('user', rex_user::get((int) $sql->getValue('id')));
+        }
+
+        try {
+            $callback();
+        } finally {
+            rex::setProperty('user', $previous);
+        }
+
+        return true;
     }
 
     public function fallbackClangId(): int

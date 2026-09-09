@@ -8,8 +8,7 @@
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
- */
-/**
+ *
  * @deprecated 2.4.0 use REX_DOMAIN_VALUE, which escapes by default
  */
 class rex_var_domain_setting extends rex_var
