@@ -139,6 +139,32 @@ if (rex::isBackend()) {
     });
 }
 
+// A way back from the YForm table manager. "Edit fields" leads out of this
+// addon, and YForm has no idea where the visitor came from - so the link is
+// offered on its field page whenever the table is one of ours. Through
+// getSections(), so it only appears for someone who may edit that tab.
+if (rex::isBackend()) {
+    rex_extension::register('PAGE_TITLE_SHOWN', static function (rex_extension_point $ep) {
+        if ('yform/manager/table_field' !== rex_be_controller::getCurrentPage()) {
+            return null;
+        }
+
+        $table = rex_request('table_name', 'string', '');
+
+        if (!array_key_exists($table, Backend::getSections())) {
+            return null;
+        }
+
+        $subject = $ep->getSubject();
+
+        return (is_string($subject) ? $subject : '') . '<p><a class="btn btn-default" href="'
+            . rex_url::backendPage('yrewrite_domain_settings/' . Backend::sectionSlug($table))
+            . '"><i class="rex-icon fa-arrow-left"></i> '
+            . rex_i18n::msg('domain_settings_back_to_values')
+            . '</a></p>';
+    });
+}
+
 // Expose the values over the api addon when it is installed. Guarded rather
 // than declared as a dependency: the addon works without it, and because this
 // runs on every request the routes appear as soon as api is installed - no

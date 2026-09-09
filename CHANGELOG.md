@@ -5,7 +5,7 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [2.4.0] — unveröffentlicht
 
-Werte sind ab jetzt je Sprache pflegbar und lassen sich in Bereiche aufteilen.
+Werte sind ab jetzt je Sprache pflegbar und lassen sich in Tabs aufteilen.
 **Bestehender Code läuft unverändert weiter** — Details im
 [README](README.md#umstieg-von-230).
 
@@ -15,7 +15,7 @@ Werte sind ab jetzt je Sprache pflegbar und lassen sich in Bereiche aufteilen.
   Fallback-Sprache ([#30])
 - Sprachen kommen aus yrewrite: eine Domain bietet nur die Sprachen an, die
   sie auch ausliefert ([#30])
-- **Bereiche** — mehrere YForm-Tabellen, je Bereich ein Reiter und eine eigene
+- **Tabs** — mehrere YForm-Tabellen, je Tab ein Reiter und eine eigene
   YForm-Tabellenberechtigung
 - Eigene Pflegeseite mit Domain- und Sprachumschaltung, Anzeige geerbter Werte
   und aufklappbaren Feldgruppen
@@ -29,7 +29,7 @@ Werte sind ab jetzt je Sprache pflegbar und lassen sich in Bereiche aufteilen.
   kostet keine Query
 - Werte zwischen Domains und Sprachen übertragen
 - REST-API über das api-Addon, sofern installiert, mit eigenen Scopes je
-  Bereich
+  Tab
 - `console domain-settings:ide-helper` für Feldnamen-Autovervollständigung
 - Medienschutz: ein verwendetes Bild lässt sich nicht mehr aus dem Medienpool
   löschen
@@ -67,7 +67,7 @@ Domain, bricht das Update ab und nennt sie.
 
 - Feld im Table Manager gelöscht oder umbenannt: der Wert-Cache fällt nicht
   automatisch, `cache:clear` räumt auf
-- Berechtigungen auf einen gelöschten Bereich bleiben als tote Einträge in den
+- Berechtigungen auf einen gelöschten Tab bleiben als tote Einträge in den
   Rollen zurück — wie im YForm Table Manager auch
 
 ## Ältere Versionen

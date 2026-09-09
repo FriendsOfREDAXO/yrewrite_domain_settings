@@ -137,3 +137,9 @@ body.rex-theme-dark .domain-settings-language-tabs > li.active > a.btn:focus {
 .domain-settings-sections table > tbody > tr:first-child > td {
     border-top: 0;
 }
+
+/* Sits next to the save button rather than below it - YForm renders the html
+   field right after the submit, so only the spacing has to be added. */
+.domain-settings-form-actions {
+    margin-left: 16px;
+}

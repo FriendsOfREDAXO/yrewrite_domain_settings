@@ -4,7 +4,7 @@ Zusatz- und Metainformationen je Domain — Footer, Kontaktdaten, Logo,
 Profil-Links. Auf Basis von YForm, ohne eigene Feldtypen-Welt.
 
 Seit **2.4.0** sind die Werte zusätzlich **je Sprache** pflegbar und lassen
-sich in **Bereiche** aufteilen. Bestehender Code läuft unverändert weiter —
+sich in **Tabs** aufteilen. Bestehender Code läuft unverändert weiter —
 siehe [Umstieg von 2.3.0](#umstieg-von-230).
 
 ## Idee
@@ -14,17 +14,17 @@ Felder legst du im YForm Table Manager an, mit dem vollen Funktionsumfang von
 YForm. Es gibt keine Namenskonvention, kein Präfix und keine Suffixe: eine neue
 Sprache ist ein `INSERT`, kein `ALTER TABLE`.
 
-**Bereiche** teilen die Daten auf — Header, Footer, Kontakt. Jeder Bereich ist
+**Tabs** teilen die Daten auf — Header, Footer, Kontakt. Jeder Tab ist
 eine eigene YForm-Tabelle (`rex_yrewrite_domain_settings`, `rex_yrewrite_domain_settings_footer`, …). Das ist
 Absicht: Dadurch greift YForms eigene Tabellenberechtigung, und jeder neue
-Bereich erscheint von selbst im Rollen-Formular unter „YForm: Tabellen
-bearbeiten". Wer den Footer nicht ändern darf, sieht den Bereich nicht.
+Tab erscheint von selbst im Rollen-Formular unter „YForm: Tabellen
+bearbeiten". Wer den Footer nicht ändern darf, sieht den Tab nicht.
 
-Die Bereiche teilen sich **einen Schlüsselraum**: `DomainSettings::get('footer_text')`
-findet den Wert, egal in welchem Bereich das Feld liegt. Der Zugriff im
+Die Tabs teilen sich **einen Schlüsselraum**: `DomainSettings::get('footer_text')`
+findet den Wert, egal in welchem Tab das Feld liegt. Der Zugriff im
 Template ändert sich also nicht, wenn du ein Feld später in einen anderen
-Bereich verschiebst. Der Preis: Ein Feldname darf nur einmal vergeben werden;
-kommt er in zwei Bereichen vor, landet eine Warnung im `system.log`.
+Tab verschiebst. Der Preis: Ein Feldname darf nur einmal vergeben werden;
+kommt er in zwei Tabs vor, landet eine Warnung im `system.log`.
 
 **Welche Sprachen eine Domain hat, sagt yrewrite**, nicht der REDAXO-Kern:
 Führt eine Domain nur Deutsch und Englisch und eine zweite zusätzlich
@@ -148,24 +148,28 @@ deshalb auch in Cronjobs, Console-Commands und E-Mail-Templates.
 
 ## Bedienung
 
-Jeder Bereich ist ein eigener Reiter in der Backend-Navigation. Darin wählst du
+Jeder Tab ist ein eigener Reiter in der Backend-Navigation. Darin wählst du
 die Domain (nur sichtbar, wenn yrewrite mehr als eine kennt) und die Sprache.
 Über dem Formular steht, welche Felder gerade aus der Fallback-Sprache
 übernommen werden.
 
-Unter **Einstellungen** liegen die Bereichsverwaltung, das Übertragen von
-Werten zwischen Domains und Sprachen sowie die Fallback-Sprache:
-Bereiche anlegen, umbenennen und in den YForm Table Manager springen. Ein
-`fieldset`-Feld wird dort zu einer aufklappbaren Gruppe; ihr Zustand bleibt pro
-Benutzer gespeichert.
+Unter **Einstellungen** liegen drei Panels: **Tabs** zum Anlegen, Umbenennen
+und Löschen samt Sprung in den YForm Table Manager, **Fallback** für die
+Sprache, aus der leere Werte bedient werden, und **Daten übertragen**. Ein
+`fieldset`-Feld wird im Formular zu einer aufklappbaren Gruppe; ihr Zustand
+bleibt pro Benutzer gespeichert.
 
-**Werte übertragen** kopiert alles Gepflegte von einer Domain oder Sprache auf
-eine andere — wahlweise für einen Bereich oder für alle. Gedacht zum Aufsetzen
+Aus dem Table Manager führt ein Link zurück — er erscheint dort, wo die
+bearbeitete Tabelle zu diesem Addon gehört. Umgekehrt steht Administratoren
+neben dem Speichern-Button der direkte Weg zu den Feldern.
+
+**Daten übertragen** kopiert alles Gepflegte von einer Domain oder Sprache auf
+eine andere — wahlweise für einen Tab oder für alle. Gedacht zum Aufsetzen
 einer neuen Domain; vorhandene Werte im Ziel werden überschrieben, deshalb mit
 Rückfrage. Quelle und Ziel müssen Domains und Sprachen sein, die der Benutzer
 ohnehin bearbeiten darf.
 
-Ein Bereich lässt sich jederzeit umbenennen — geändert wird nur die
+Ein Tab lässt sich jederzeit umbenennen — geändert wird nur die
 Beschriftung. Die Tabelle behält ihren Namen, und das ist Absicht: An ihm
 hängen die Berechtigungen und der Reiter-Link. Würde die Tabelle mitwandern,
 verlöre jede Rolle ihre Zuweisung.
@@ -190,8 +194,8 @@ lässt sich nicht beeinflussen, den geben die Browser seit Jahren fest vor.
   Redakteur sieht nur die Tabs seiner Sprachen
 - Domains über `yrewrite_domains` im Benutzerprofil. Ohne Berechtigung für
   mindestens eine Domain bleibt die Seite gesperrt
-- Bereiche über YForms `yform_manager_table_edit` — dieselbe Berechtigung, die
-  auch den Table Manager steuert. Ohne Zugriff auf mindestens einen Bereich
+- Tabs über YForms `yform_manager_table_edit` — dieselbe Berechtigung, die
+  auch den Table Manager steuert. Ohne Zugriff auf mindestens einen Tab
   bleibt die Seite gesperrt
 
 ## IDE-Unterstützung
@@ -215,8 +219,8 @@ die Werte über HTTP bereit — mit **aufgelöster Fallback-Kette**, also fertig
 Werten statt roher Zeilen:
 
 ```
-GET   /api/domain-settings                      alle Bereiche
-GET   /api/domain-settings/<bereich>            ein Bereich
+GET   /api/domain-settings                      alle Tabs
+GET   /api/domain-settings/<bereich>            ein Tab
 PATCH /api/domain-settings/<bereich>            Werte ändern
       ?domain_id=1&clang_id=2           beides optional
 ```
@@ -236,16 +240,16 @@ gültigen beantwortet. Gespeichert wird über den YForm-Datensatz, also laufen
 die Validatoren der Tabelle; schlägt einer an, kommt `422` mit den Meldungen
 zurück.
 
-**Rechte pro Bereich, getrennt nach Lesen und Schreiben:** Jeder Bereich
+**Rechte pro Tab, getrennt nach Lesen und Schreiben:** Jeder Tab
 bekommt eigene Scopes (`domain-settings/read/<bereich>`, `domain-settings/write/<bereich>`),
 dazu `domain-settings/read` für den Sammel-Endpunkt. Ein Token zum Auslesen kann also
-nichts verändern. Ein Token lässt sich also auf einzelne Bereiche beschränken —
+nichts verändern. Ein Token lässt sich also auf einzelne Tabs beschränken —
 und es bleiben eine Handvoll Scopes, auch wenn es 150 Felder gibt. Die Vergabe
 läuft im api-Addon unter **API → Token**; dieses Addon braucht dafür keine
 eigenen Einstellungen.
 
-Die Routen entstehen automatisch aus den vorhandenen Bereichen. Legst du einen
-Bereich an oder benennst ihn um, ist die Route beim nächsten Aufruf da. Wird
+Die Routen entstehen automatisch aus den vorhandenen Tabs. Legst du einen
+Tab an oder benennst ihn um, ist die Route beim nächsten Aufruf da. Wird
 das api-Addon erst später installiert, erscheinen die Routen ebenfalls von
 selbst — das Addon muss dafür nicht neu installiert werden.
 
@@ -253,7 +257,7 @@ selbst — das Addon muss dafür nicht neu installiert werden.
 
 Alle Werte über alle Domains und Sprachen liegen in einer Cache-Datei, die beim
 ersten `get()` gelesen wird — nicht beim Booten. Requests, die keinen Wert
-abfragen, kosten nichts; das Füllen des Caches braucht eine Query je Bereich. Der Cache
+abfragen, kosten nichts; das Füllen des Caches braucht eine Query je Tab. Der Cache
 wird über YForms eigene Datenereignisse verworfen, eine Änderung direkt im
 Table Manager wirkt also genauso.
 
@@ -304,7 +308,7 @@ formuliert: „Tests run as REDAXO console commands. PHPUnit is **not**
 required." Die Prüfungen brauchen `rex_clang`, den Datei-Cache, YForm-Tabellen
 und `rex_var::parse()`; das zu mocken wäre mehr Arbeit als Nutzen.
 
-Die Testdaten liegen in einem eigenen Bereich, der um den Lauf herum angelegt
+Die Testdaten liegen in einem eigenen Tab, der um den Lauf herum angelegt
 und wieder gelöscht wird, und benutzen eine Domain-ID weit außerhalb dessen,
 was yrewrite vergibt. Redaktionelle Inhalte werden nicht angefasst — geprüft
 durch Vergleich der Tabellen vor und nach dem Lauf.

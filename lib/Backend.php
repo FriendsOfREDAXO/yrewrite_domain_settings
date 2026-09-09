@@ -761,6 +761,7 @@ final class Backend
         string $formName,
         array $queryParams,
         bool &$saved = false,
+        string $extraButtons = '',
     ): string {
         $yform = $dataset->getForm();
         $yform->setObjectparams('form_name', $formName);
@@ -781,6 +782,16 @@ final class Backend
             'no_db' => true,
             'css_classes' => 'btn-save',
         ]);
+
+        // Rendered by YForm rather than appended afterwards, so it sits in the
+        // same row as the save button instead of below the form. Every html
+        // field needs a name of its own.
+        if ('' !== $extraButtons) {
+            $yform->setValueField('html', [
+                'name' => 'domain_settings_extra_buttons',
+                'html' => '<span class="domain-settings-form-actions">' . $extraButtons . '</span>',
+            ]);
+        }
 
         $form = $dataset->executeForm($yform);
 

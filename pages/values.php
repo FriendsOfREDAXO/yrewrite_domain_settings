@@ -125,12 +125,21 @@ if (count($clangs) > 1) {
 // Render first, then work out what is inherited: a save happens inside
 // renderForm(), so asking earlier would describe the state before it.
 $dataset = Backend::getDataset($table, ['domain_id' => $domainId, 'clang_id' => $clangId]);
+// Admins get the way into the field definitions from here, next to the save
+// button - not only from the "no fields yet" hint, which disappears as soon
+// as the first field exists.
+$fieldsLink = rex::getUser()?->isAdmin()
+    ? '<a class="btn btn-default" href="' . Backend::getFieldsUrl($table) . '">'
+        . '<i class="rex-icon fa-list"></i> ' . rex_i18n::msg('domain_settings_edit_fields') . '</a>'
+    : '';
+
 $saved = false;
 $form = Backend::renderForm(
     $dataset,
     'domain_settings',
     ['page' => rex_be_controller::getCurrentPage()] + $baseParams,
     $saved,
+    $fieldsLink,
 );
 
 // "Save and switch" from the unsaved-changes dialog: the language to go to

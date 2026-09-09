@@ -1,17 +1,18 @@
 <?php
 
 /**
- * Settings: the fallback language, and managing the sections.
+ * Settings: the tabs, the fallback language, and copying data around.
  *
- * A section is an ordinary YForm table. That is not an implementation detail
- * to hide but the point of it: YForm's own table permission then governs who
- * may edit which section, and it shows up in the role form without a line of
- * code here.
+ * A tab is an ordinary YForm table. That is not an implementation detail to
+ * hide but the point of it: YForm's own table permission then governs who may
+ * edit which tab, and it shows up in the role form without a line of code
+ * here - which is why the panel says so out loud.
  *
  * @var rex_addon $this
  */
 
 use FriendsOfRedaxo\DomainSettings\Backend;
+use FriendsOfRedaxo\DomainSettings\DomainSettings;
 
 $csrf = rex_csrf_token::factory('domain_settings_section');
 
@@ -62,6 +63,15 @@ if ('' !== $func) {
                 ? rex_view::success(rex_i18n::msg('domain_settings_copy_done', $copied))
                 : rex_view::warning(rex_i18n::msg('domain_settings_copy_nothing'));
         }
+    } elseif ('fallback' === $func) {
+        $clangId = rex_post('fallback_clang_id', 'int', 0);
+
+        if (rex_clang::exists($clangId)) {
+            $this->setConfig('fallback_clang_id', $clangId);
+            echo rex_view::success(rex_i18n::msg('domain_settings_saved'));
+        } else {
+            echo rex_view::warning(rex_i18n::msg('domain_settings_section_invalid'));
+        }
     } elseif ('rename' === $func) {
         $renamed = 0;
         /** @var array<string, string> $labels */
@@ -77,7 +87,7 @@ if ('' !== $func) {
     }
 }
 
-// ------------------------------------------------------------------ sections
+// ---------------------------------------------------------------------- tabs
 $rows = '';
 foreach (Backend::getAllSections() as $table => $label) {
     $count = count(rex_yform_manager_table::get($table)?->getValueFields() ?? []);
@@ -107,7 +117,8 @@ $hidden = '<input type="hidden" name="page" value="' . rex_escape(rex_be_control
 
 // Creating and editing sit in one panel: both are about sections, and the
 // editor should not have to hunt for them in two places.
-$body = '<form action="' . rex_url::currentBackendPage() . '" method="post">'
+$body = '<p>' . rex_i18n::msg('domain_settings_sections_notice') . '</p>'
+    . '<form action="' . rex_url::currentBackendPage() . '" method="post">'
     . $hidden
     . '<input type="hidden" name="func" value="add">'
     . $csrf->getHiddenField()
@@ -136,7 +147,38 @@ $fragment->setVar('title', rex_i18n::msg('domain_settings_sections'), false);
 $fragment->setVar('body', $body, false);
 echo $fragment->parse('core/page/section.php');
 
-// -------------------------------------------------------- copy values over
+// ---------------------------------------------------------------- fallback
+// Hand-built rather than rex_config_form: that one puts its submit button
+// into a panel-footer, which sits visually apart from the buttons of the
+// other panels on this page. Saving still goes through rex_config.
+$select = new rex_select();
+$select->setId('domain-settings-fallback-clang');
+$select->setName('fallback_clang_id');
+$select->setAttribute('class', 'form-control');
+$select->setSelected(DomainSettings::getConfiguredFallbackClangId());
+$select->addArrayOptions(array_map(
+    static fn (rex_clang $clang) => $clang->getName(),
+    rex_clang::getAll(),
+));
+
+$body = '<p>' . rex_i18n::msg('domain_settings_fallback_notice') . '</p>'
+    . '<form action="' . rex_url::currentBackendPage() . '" method="post">'
+    . $hidden
+    . '<input type="hidden" name="func" value="fallback">'
+    . $csrf->getHiddenField()
+    . '<div class="form-group">'
+    . '<label for="domain-settings-fallback-clang">' . rex_i18n::msg('domain_settings_fallback_clang') . '</label>'
+    . $select->get()
+    . '</div>'
+    . '<button class="btn btn-save" type="submit">' . rex_i18n::msg('domain_settings_save') . '</button>'
+    . '</form>';
+
+$fragment = new rex_fragment();
+$fragment->setVar('title', rex_i18n::msg('domain_settings_fallback_title'), false);
+$fragment->setVar('body', $body, false);
+echo $fragment->parse('core/page/section.php');
+
+// ------------------------------------------------------------ copy data over
 $domains = Backend::getDomains();
 $clangs = Backend::getEditableClangs();
 $sections = Backend::getSections();
@@ -195,21 +237,3 @@ if (count($domains) > 1 || count($clangs) > 1) {
     $fragment->setVar('body', $body, false);
     echo $fragment->parse('core/page/section.php');
 }
-
-// ---------------------------------------------------------- fallback language
-$form = rex_config_form::factory($this->getPackageId());
-
-$field = $form->addSelectField('fallback_clang_id');
-$field->setLabel(rex_i18n::msg('domain_settings_fallback_clang'));
-$field->setNotice(rex_i18n::msg('domain_settings_fallback_clang_notice'));
-
-$select = $field->getSelect();
-$select->addArrayOptions(array_map(
-    static fn (rex_clang $clang) => $clang->getName(),
-    rex_clang::getAll(),
-));
-
-$fragment = new rex_fragment();
-$fragment->setVar('title', rex_i18n::msg('domain_settings_settings'), false);
-$fragment->setVar('body', $form->get(), false);
-echo $fragment->parse('core/page/section.php');
