@@ -56,7 +56,7 @@ final class Backend
      * duplicate `main` would make one section unreachable and point its API
      * scope at the other one's table.
      */
-    private const RESERVED_SLUGS = ['main', 'settings', 'help'];
+    private const RESERVED_SLUGS = ['main', 'data', 'settings', 'migration', 'help'];
     /**
      * Section list for this request.
      *

@@ -107,6 +107,40 @@ if (rex::isBackend() && rex::getUser()) {
     rex_view::addJsFile($this->getAssetsUrl('domain_settings.js') . $version);
 }
 
+// Old tab URLs keep working. Registered rather than caught: the controller
+// sends an unknown page to the start page before any of our code runs.
+if (rex::isBackend()) {
+    rex_extension::register('PAGES_PREPARED', static function (): void {
+        $page = rex_be_controller::getPageObject('yrewrite_domain_settings');
+
+        if (null === $page) {
+            return;
+        }
+
+        $subpages = $page->getSubpages();
+        $redirects = [];
+        $subPath = rex_addon::get('yrewrite_domain_settings')->getPath('pages/redirect.php');
+
+        foreach (Backend::getSections() as $table => $label) {
+            $slug = Backend::sectionSlug($table);
+
+            // Never shadow one of the real pages - a tab called "data" would
+            // otherwise take the editing page with it.
+            if (isset($subpages[$slug])) {
+                continue;
+            }
+
+            $redirects[$slug] = (new rex_be_page($slug, $label))
+                ->setSubPath($subPath)
+                ->setHidden(true);
+        }
+
+        if ([] !== $redirects) {
+            $page->setSubpages($subpages + $redirects);
+        }
+    });
+}
+
 // A way back from the YForm table manager. "Edit fields" leads out of this
 // addon, and YForm has no idea where the visitor came from - so the link is
 // offered on its field page whenever the table is one of ours. Through
