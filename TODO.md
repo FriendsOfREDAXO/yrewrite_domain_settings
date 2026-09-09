@@ -21,10 +21,14 @@ stabil läuft.
 
 ### Import aus global_settings
 
-Analyse liegt vor: `docs/migration-global-settings.md`. Kommt nur in Frage,
-wenn dieses Addon auch als Nachfolger von `global_settings` auftreten soll —
-dort steckt ein eigenes Feldtypen-System samt PHP-Callbacks in der Datenbank,
-das ist ein deutlich größerer Umbau als die Sprachachse hier.
+Kommt nur in Frage, wenn dieses Addon auch als Nachfolger von
+`global_settings` auftreten soll. Dort liegt ein eigenes Feldtypen-System
+(`rex_global_settings_type`/`_field`), eine Wide-Table mit `clang` als
+Primärschlüssel und PHP-Callbacks als Code-String in der Datenbank — ein
+deutlich größerer Umbau als die Sprachachse hier. Handarbeit bliebe: Options-
+Listen von select/radio/checkbox, Colorpicker (kein YForm-Gegenstück),
+Callbacks. Pipe-getrennte Mehrfachwerte (`|a|b|`) müssten umgesetzt, der
+`glob_`-Prefix aus den Feldnamen entfernt werden.
 
 ### Spezialfelder, die der template_manager hat
 

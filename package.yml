@@ -40,4 +40,3 @@ installer_ignore:
     - composer.json
     - composer.lock
     - vendor
-    - docs
