@@ -33,7 +33,7 @@ Werte sind ab jetzt je Sprache pflegbar und lassen sich in Bereiche aufteilen.
 - `console domain-settings:ide-helper` für Feldnamen-Autovervollständigung
 - Medienschutz: ein verwendetes Bild lässt sich nicht mehr aus dem Medienpool
   löschen
-- `console domain-settings:test` — 41 Prüfungen in sechs Suiten
+- `console domain-settings:test` — 43 Prüfungen in sechs Suiten
 
 ### Behoben
 

@@ -310,8 +310,14 @@ was yrewrite vergibt. Redaktionelle Inhalte werden nicht angefasst — geprüft
 durch Vergleich der Tabellen vor und nach dem Lauf.
 
 Suiten: `fallback` (Vererbungskette), `sections` (anlegen, umbenennen,
-löschen), `cache` (Invalidierung), `security` (Regressionen der im Review
-gefundenen Lücken), `legacy` (die API von 2.3.0).
+löschen, reservierte Schlüssel), `cache` (Invalidierung), `security`
+(Regressionen der im Review gefundenen Lücken), `legacy` (die API von 2.3.0),
+`domain-languages` (welche Sprachen eine Domain führt).
+
+Kann eine Prüfung auf dieser Instanz nicht laufen — weil es nur eine Sprache
+gibt, keine fremde YForm-Tabelle oder bereits echte Werte auf der aktuellen
+Domain —, wird sie als `skip` mit Begründung ausgewiesen und **nicht** als
+bestanden gezählt.
 
 ## Bugtracker
 
