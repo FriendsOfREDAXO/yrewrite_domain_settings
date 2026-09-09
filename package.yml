@@ -24,6 +24,7 @@ page:
             icon: rex-icon fa-exchange
         help:
             title: translate:domain_settings_help
+            perm: admin[]
             subPath: README.md
             itemClass: 'pull-right'
             icon: 'rex-icon fa-info-circle'
