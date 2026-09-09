@@ -1,0 +1,139 @@
+/* Collapsible field groups and language tabs.
+   Built on YForm's own fieldset value type and bootstrap markup rather than a
+   custom value type, so nothing here depends on YForm internals. */
+
+.domain-settings-form fieldset > legend {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 1.5em;
+}
+
+.domain-settings-form fieldset > legend::after {
+    content: "\f078"; /* fa-chevron-down */
+    font-family: FontAwesome;
+    position: absolute;
+    right: 0;
+    font-size: .7em;
+    top: .45em;
+    transition: transform .15s ease;
+}
+
+.domain-settings-form fieldset.domain-settings-collapsed > legend::after {
+    transform: rotate(-90deg);
+}
+
+.domain-settings-form fieldset.domain-settings-collapsed > *:not(legend) {
+    display: none;
+}
+
+/* Language tabs.
+
+   REDAXO's dark theme leaves native bootstrap tabs unstyled on purpose
+   ("redaxo uses custom tab markup", be_style/…/bootstrap-dark-overrides/_navs.scss)
+   and only dresses `.nav-tabs > li > .btn-default` - which it makes *lighter*
+   than the panel. That reads upside down for tabs, so the roles are swapped
+   here: the active tab takes the panel's own background and covers the rule,
+   the inactive ones sit back a shade with dimmed text.
+
+   Colours are be_style's own: panel background #202b35, body #1b232c, and the
+   rule matches `legend`'s border rgba(21,28,34,.5). */
+
+.domain-settings-language-tabs {
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 20px;
+}
+
+.domain-settings-language-tabs > li > a.btn {
+    border-radius: 4px 4px 0 0;
+    margin-right: 2px;
+    background-color: #f0f0f0;
+    border-color: #ddd;
+    color: #777;
+}
+
+.domain-settings-language-tabs > li > a.btn:hover,
+.domain-settings-language-tabs > li > a.btn:focus {
+    background-color: #e8e8e8;
+    color: #333;
+}
+
+/* The active tab is a continuation of the panel: same background, and its
+   bottom border repaints the rule so the two read as one surface. */
+.domain-settings-language-tabs > li.active > a.btn,
+.domain-settings-language-tabs > li.active > a.btn:hover,
+.domain-settings-language-tabs > li.active > a.btn:focus {
+    background-color: #fff;
+    border-color: #ddd;
+    border-bottom-color: #fff;
+    margin-bottom: -1px;
+    color: #333;
+    cursor: default;
+}
+
+body.rex-theme-dark .domain-settings-language-tabs {
+    border-bottom-color: rgba(21, 28, 34, .5);
+}
+
+body.rex-theme-dark .domain-settings-language-tabs > li > a.btn {
+    background-color: #1b232c;
+    border-color: rgba(21, 28, 34, .8);
+    color: rgba(255, 255, 255, .45);
+}
+
+body.rex-theme-dark .domain-settings-language-tabs > li > a.btn:hover,
+body.rex-theme-dark .domain-settings-language-tabs > li > a.btn:focus {
+    background-color: #18202a;
+    color: rgba(255, 255, 255, .75);
+}
+
+body.rex-theme-dark .domain-settings-language-tabs > li.active > a.btn,
+body.rex-theme-dark .domain-settings-language-tabs > li.active > a.btn:hover,
+body.rex-theme-dark .domain-settings-language-tabs > li.active > a.btn:focus {
+    background-color: #202b35;
+    border-color: rgba(21, 28, 34, .5);
+    border-bottom-color: #202b35;
+    color: rgba(255, 255, 255, .75);
+}
+
+@media (prefers-color-scheme: dark) {
+    body:not(.rex-theme-light) .domain-settings-language-tabs {
+        border-bottom-color: rgba(21, 28, 34, .5);
+    }
+
+    body:not(.rex-theme-light) .domain-settings-language-tabs > li > a.btn {
+        background-color: #1b232c;
+        border-color: rgba(21, 28, 34, .8);
+        color: rgba(255, 255, 255, .45);
+    }
+
+    body:not(.rex-theme-light) .domain-settings-language-tabs > li > a.btn:hover,
+    body:not(.rex-theme-light) .domain-settings-language-tabs > li > a.btn:focus {
+        background-color: #18202a;
+        color: rgba(255, 255, 255, .75);
+    }
+
+    body:not(.rex-theme-light) .domain-settings-language-tabs > li.active > a.btn,
+    body:not(.rex-theme-light) .domain-settings-language-tabs > li.active > a.btn:hover,
+    body:not(.rex-theme-light) .domain-settings-language-tabs > li.active > a.btn:focus {
+        background-color: #202b35;
+        border-color: rgba(21, 28, 34, .5);
+        border-bottom-color: #202b35;
+        color: rgba(255, 255, 255, .75);
+    }
+}
+
+
+/* Section list on the settings page.
+
+   The list follows the create form, so it needs room to read as a separate
+   step. And the table's top border would sit directly under legend's own
+   rule - two lines a few pixels apart - so it goes. */
+
+.domain-settings-sections {
+    margin-top: 35px;
+}
+
+.domain-settings-sections table > tbody > tr:first-child > td {
+    border-top: 0;
+}

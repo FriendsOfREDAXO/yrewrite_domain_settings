@@ -1,13 +1,43 @@
 package: yrewrite_domain_settings
-version: '2.3.0'
+version: '2.4.0'
 author: Friends Of REDAXO
 supportpage: https://github.com/FriendsOfREDAXO/yrewrite_domain_settings
-    
-requires:
-    redaxo: '^5.5'
-    packages:
-        yrewrite: '^2.5'
-        yform: '>3.0, <6'
-    php:
-        version: '>=5.6'
 
+page:
+    title: translate:domain_settings_title
+    perm: yrewrite_domain_settings[]
+    icon: rex-icon fa-globe
+    subpages:
+        settings:
+            title: translate:domain_settings_settings
+            perm: admin[]
+            itemClass: 'pull-right'
+            icon: rex-icon fa-cog
+        help:
+            title: translate:domain_settings_help
+            subPath: README.md
+            itemClass: 'pull-right'
+            icon: 'rex-icon fa-info-circle'
+
+console_commands:
+    domain-settings:ide-helper: FriendsOfRedaxo\DomainSettings\Command\IdeHelperCommand
+    domain-settings:test: FriendsOfRedaxo\DomainSettings\Command\TestCommand
+
+requires:
+    redaxo: '^5.17'
+    php:
+        version: '^8.1'
+    packages:
+        yform: '^5.0'
+        yrewrite: '^2.5'
+
+installer_ignore:
+    - .git
+    - .travis.yml
+    - .gitignore
+    - .php-cs-fixer.dist.php
+    - .php-cs-fixer.cache
+    - composer.json
+    - composer.lock
+    - vendor
+    - docs

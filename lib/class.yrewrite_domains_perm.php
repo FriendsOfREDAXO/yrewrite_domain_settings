@@ -1,17 +1,29 @@
 <?php
 
-class rex_yrewrite_domains_perm extends rex_complex_perm
-{
-    public function getDomains() {
-        return $this->perms;
-    }
+use FriendsOfRedaxo\DomainSettings\DomainPerm;
 
-    public static function getFieldParams()
+/**
+ * The complex permission registered under `yrewrite_domains`.
+ *
+ * Everything it does lives in DomainPerm; this subclass exists to keep the
+ * class name and the return value of getDomains() exactly as they were before
+ * 2.4.0, because project code calls both.
+ */
+class rex_yrewrite_domains_perm extends DomainPerm
+{
+    /**
+     * The raw permission value: an array of domain ids, or the string `all`.
+     *
+     * Kept verbatim - callers compare it against `'all'`
+     * (`$user->getComplexPerm('yrewrite_domains')->getDomains() === 'all'`),
+     * which is why this must not be normalised into an array.
+     *
+     * @deprecated 2.4.0 use hasPerm() instead, which also covers admins
+     *
+     * @return array<int, string>|string
+     */
+    public function getDomains()
     {
-        return [
-            'label' => rex_i18n::msg('yrewrite_domain_settings_domains'),
-            'all_label' => rex_i18n::msg('yrewrite_domain_settings_all_domains'),
-            'select' => new rex_yrewrite_domains_select(),
-        ];
+        return $this->perms;
     }
 }

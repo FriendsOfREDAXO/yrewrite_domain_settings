@@ -1,0 +1,665 @@
+<?php
+
+namespace FriendsOfRedaxo\DomainSettings;
+
+use rex;
+use rex_addon;
+use rex_clang;
+use rex_file;
+use rex_i18n;
+use rex_path;
+use rex_sql;
+use rex_sql_column;
+use rex_sql_index;
+use rex_sql_table;
+use rex_string;
+use rex_url;
+use rex_view;
+use rex_yform;
+use rex_yform_manager_dataset;
+use rex_yform_manager_table;
+use rex_yform_manager_table_api;
+use rex_yrewrite;
+use RuntimeException;
+
+use function array_key_exists;
+use function count;
+use function in_array;
+use function strlen;
+
+use const ARRAY_FILTER_USE_KEY;
+
+/**
+ * Helpers for the editing page.
+ *
+ * Kept apart from DomainSettings so the read path stays free of backend concerns and
+ * never loads any of this in the frontend.
+ */
+final class Backend
+{
+    /**
+     * Section list for this request.
+     *
+     * Built once: identifying sections costs a SHOW COLUMNS per candidate
+     * table, and the list is needed on every backend request to build the
+     * navigation.
+     *
+     * @var array<string, string>|null
+     */
+    private static ?array $sections = null;
+
+    /**
+     * Every domain known to the system, as id => label.
+     *
+     * Without yrewrite there is exactly one entry: domain 0, the whole site.
+     * yrewrite's implicit `default` domain has no id and therefore also maps
+     * to 0, so both cases line up.
+     *
+     * @return array<int, string>
+     */
+    public static function getAllDomains(): array
+    {
+        if (!rex_addon::get('yrewrite')->isAvailable()) {
+            return [0 => rex_i18n::msg('domain_settings_domain_default')];
+        }
+
+        // yrewrite fills its domain list during boot in a web request. In a
+        // console command it stays empty until init() runs, which would make
+        // a configured instance look like it had no domains at all. Checking
+        // for the empty list beats sniffing the context: rex::isBackend() is
+        // true on the CLI as well, so it cannot tell the two apart.
+        $yrewriteDomains = rex_yrewrite::getDomains();
+        if ([] === $yrewriteDomains) {
+            rex_yrewrite::init();
+            $yrewriteDomains = rex_yrewrite::getDomains();
+        }
+
+        $domains = [];
+        foreach ($yrewriteDomains as $domain) {
+            $id = (int) $domain->getId();
+            if (0 === $id) {
+                continue;
+            }
+            $domains[$id] = $domain->getName();
+        }
+
+        // Only offer yrewrite's implicit "default" domain while there is no
+        // real one. Once domains are configured, every article belongs to one
+        // of them, so values maintained on domain 0 would never show up in the
+        // frontend - an easy trap to fall into.
+        if ([] === $domains) {
+            return [0 => rex_i18n::msg('domain_settings_domain_default')];
+        }
+
+        ksort($domains);
+
+        return $domains;
+    }
+
+    /**
+     * Domains the current user may edit.
+     *
+     * @return array<int, string>
+     */
+    public static function getDomains(): array
+    {
+        $domains = self::getAllDomains();
+        $user = rex::getUser();
+
+        if (null === $user) {
+            return $domains;
+        }
+
+        $perm = $user->getComplexPerm('yrewrite_domains');
+
+        return array_filter(
+            $domains,
+            static fn (int $id) => $perm->hasPerm($id),
+            ARRAY_FILTER_USE_KEY,
+        );
+    }
+
+    /**
+     * All section tables, as table name => label.
+     *
+     * A section is an ordinary YForm table named like the main one plus a
+     * suffix. Recognising them by prefix keeps the addon free of a second
+     * registry, but the prefix alone is not enough: a project table that
+     * happens to start the same way must not be picked up, so the structural
+     * columns are checked as well.
+     *
+     * @return array<string, string>
+     */
+    public static function getAllSections(): array
+    {
+        if (null !== self::$sections) {
+            return self::$sections;
+        }
+
+        $base = rex::getTable(DomainSettings::ADDON);
+        $sections = [];
+
+        foreach (rex_yform_manager_table::getAll() as $table) {
+            $name = $table->getTableName();
+
+            if ($name !== $base && !str_starts_with($name, $base . '_')) {
+                continue;
+            }
+
+            $columns = array_column(rex_sql::showColumns($name), 'name');
+            if (!in_array('domain_id', $columns, true) || !in_array('clang_id', $columns, true)) {
+                continue;
+            }
+
+            $sections[$name] = $table->getNameLocalized();
+        }
+
+        return self::$sections = $sections;
+    }
+
+    /**
+     * Drops the section list cached for this request.
+     *
+     * Needed after creating, renaming or deleting a section, because the list
+     * is built once per request - see the property.
+     */
+    public static function resetSections(): void
+    {
+        self::$sections = null;
+    }
+
+    /**
+     * Sections the current user may edit.
+     *
+     * Uses YForm's own table permission, so every section shows up in the role
+     * form by itself and the authorisation is YForm's, not ours.
+     *
+     * @return array<string, string>
+     */
+    public static function getSections(): array
+    {
+        $sections = self::getAllSections();
+        $user = rex::getUser();
+
+        if (null === $user) {
+            return $sections;
+        }
+
+        $perm = $user->getComplexPerm('yform_manager_table_edit');
+
+        return array_filter(
+            $sections,
+            static fn (string $table) => $perm->hasPerm($table),
+            ARRAY_FILTER_USE_KEY,
+        );
+    }
+
+    /**
+     * URL-safe key for a section table, used as its backend page key.
+     *
+     * The main table has no suffix to strip, so it gets a fixed key.
+     */
+    public static function sectionSlug(string $table): string
+    {
+        $base = rex::getTable(DomainSettings::ADDON);
+
+        return $table === $base ? 'main' : substr($table, strlen($base) + 1);
+    }
+
+    /** Resolves a page key back to its section table, or null if unknown. */
+    public static function sectionBySlug(string $slug): ?string
+    {
+        foreach (array_keys(self::getAllSections()) as $table) {
+            if (self::sectionSlug($table) === $slug) {
+                return $table;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Creates a new section table and registers it with YForm.
+     *
+     * Returns the table name, or null when the label yields no usable suffix
+     * or the table already exists.
+     */
+    public static function createSection(string $label): ?string
+    {
+        $label = trim($label);
+        $slug = trim(rex_string::normalize($label, '_'), '_');
+
+        if ('' === $label || '' === $slug) {
+            return null;
+        }
+
+        $table = rex::getTable(DomainSettings::ADDON) . '_' . $slug;
+
+        if (null !== rex_yform_manager_table::get($table)) {
+            return null;
+        }
+
+        rex_sql_table::get($table)
+            ->ensurePrimaryIdColumn()
+            ->ensureColumn(new rex_sql_column('domain_id', 'int(10) unsigned', false, '0'))
+            ->ensureColumn(new rex_sql_column('clang_id', 'int(10) unsigned', false, '0'))
+            ->ensureIndex(new rex_sql_index('domain_clang', ['domain_id', 'clang_id'], rex_sql_index::UNIQUE))
+            ->ensure();
+
+        rex_yform_manager_table_api::setTable([
+            'table_name' => $table,
+            'name' => $label,
+            'description' => rex_i18n::msg('domain_settings_table_description'),
+            'hidden' => 1,
+            'schema_overwrite' => 0,
+            'export' => 0,
+            'import' => 0,
+            'search' => 0,
+            'mass_deletion' => 0,
+            'mass_edit' => 0,
+            'history' => 0,
+        ]);
+        rex_yform_manager_table::deleteCache();
+        self::resetSections();
+
+        return $table;
+    }
+
+    /**
+     * Whether a section may be deleted.
+     *
+     * The main table stays: the addon installs it, the editing page falls back
+     * to it, and dropping it would leave the addon without any storage at all.
+     */
+    public static function isSectionDeletable(string $table): bool
+    {
+        return $table !== rex::getTable(DomainSettings::ADDON)
+            && array_key_exists($table, self::getAllSections());
+    }
+
+    /**
+     * Deletes a section: field definitions, YForm registration and the table.
+     *
+     * The name is checked against the known sections first, and that check is
+     * the whole safety net - the table name arrives from a request, and
+     * dropping whatever it names would happily take rex_article with it.
+     *
+     * Permissions already granted on the table stay behind in the roles as
+     * dead entries. Harmless (nothing resolves them any more) and the same
+     * thing happens when a table is deleted in the YForm table manager.
+     */
+    public static function deleteSection(string $table): bool
+    {
+        if (!self::isSectionDeletable($table)) {
+            return false;
+        }
+
+        rex_yform_manager_table_api::removeTable($table);
+        rex_yform_manager_table::deleteCache();
+
+        rex_sql::factory()->setQuery('DROP TABLE IF EXISTS ' . rex_sql::factory()->escapeIdentifier($table));
+
+        self::resetSections();
+        DomainSettings::deleteCache();
+
+        return true;
+    }
+
+    /**
+     * Copies all values of one domain/language pair onto another.
+     *
+     * Overwrites the target: this is meant for setting up a new domain from an
+     * existing one, where anything already there is a leftover. Only sections
+     * the user may edit are touched, and source and target are validated by
+     * the caller against what the user may see.
+     *
+     * @param string|null $onlyTable limit to one section, null for all of them
+     *
+     * @return int number of sections copied
+     */
+    public static function copyValues(
+        int $fromDomainId,
+        int $fromClangId,
+        int $toDomainId,
+        int $toClangId,
+        ?string $onlyTable = null,
+    ): int {
+        if ($fromDomainId === $toDomainId && $fromClangId === $toClangId) {
+            return 0;
+        }
+
+        $sections = self::getSections();
+        if (null !== $onlyTable) {
+            $sections = array_intersect_key($sections, [$onlyTable => true]);
+        }
+
+        $copied = 0;
+
+        foreach (array_keys($sections) as $table) {
+            $sql = rex_sql::factory();
+            $rows = $sql->getArray(
+                'SELECT * FROM ' . $sql->escapeIdentifier($table) . ' WHERE domain_id = :domain AND clang_id = :clang',
+                ['domain' => $fromDomainId, 'clang' => $fromClangId],
+            );
+
+            if (!isset($rows[0])) {
+                continue;
+            }
+
+            $values = $rows[0];
+            unset($values['id'], $values['domain_id'], $values['clang_id']);
+
+            if ([] === $values) {
+                continue;
+            }
+
+            // getDataset() creates the target row when it does not exist yet,
+            // so there is always something to write to.
+            $target = self::getDataset($table, ['domain_id' => $toDomainId, 'clang_id' => $toClangId]);
+
+            foreach ($values as $column => $value) {
+                $target->setValue($column, $value);
+            }
+
+            if ($target->save()) {
+                ++$copied;
+            }
+        }
+
+        // No deleteCache() here: saving a dataset fires YFORM_DATA_UPDATED,
+        // which the boot hook already listens to.
+        return $copied;
+    }
+
+    /**
+     * All field names, without layout elements.
+     *
+     * @param string|null $onlyTable limit to one section, null for all of them
+     *
+     * @return list<string>
+     */
+    public static function getFieldNames(?string $onlyTable = null): array
+    {
+        $names = [];
+        $tables = null === $onlyTable ? array_keys(self::getAllSections()) : [$onlyTable];
+
+        foreach ($tables as $tableName) {
+            $table = rex_yform_manager_table::get($tableName);
+            if (null === $table) {
+                continue;
+            }
+
+            foreach ($table->getValueFields() as $field) {
+                // Layout elements hold no value, so completing them would be
+                // misleading.
+                if (in_array($field->getTypeName(), ['fieldset', 'html'], true)) {
+                    continue;
+                }
+                $names[$field->getName()] = true;
+            }
+        }
+
+        $names = array_keys($names);
+        sort($names);
+
+        return $names;
+    }
+
+    /**
+     * Writes the .phpstorm.meta.php listing every field name.
+     *
+     * Kept here rather than in the command so the cache hooks can refresh it
+     * too - an IDE helper that goes stale is worse than none.
+     *
+     * @return int number of names written, or -1 when the file could not be written
+     */
+    public static function writeIdeHelper(): int
+    {
+        $keys = self::getFieldNames();
+
+        if ([] === $keys) {
+            return 0;
+        }
+
+        $list = implode(', ', array_map(static fn (string $key) => "'" . $key . "'", $keys));
+
+        $meta = "<?php\n\nnamespace PHPSTORM_META;\n\n"
+            . "// Generated by the yrewrite_domain_settings addon - do not edit by hand.\n"
+            . "// Refreshed on cache:clear, or via \"console domain-settings:ide-helper\".\n\n"
+            . "registerArgumentsSet('domain_settings_keys', " . $list . ");\n"
+            . "expectedArguments(\\FriendsOfRedaxo\\DomainSettings\\DomainSettings::get(), 0, argumentsSet('domain_settings_keys'));\n";
+
+        return rex_file::put(rex_path::addon(DomainSettings::ADDON, '.phpstorm.meta.php'), $meta)
+            ? count($keys)
+            : -1;
+    }
+
+    /**
+     * Renames a section.
+     *
+     * Only the label changes; the table keeps its name. That is deliberate:
+     * YForm's table permission stores table names in the roles, so renaming
+     * the table would silently drop every assignment - and the page key, which
+     * is derived from the table name, would change too.
+     */
+    public static function renameSection(string $table, string $label): bool
+    {
+        $label = trim($label);
+
+        if ('' === $label || !array_key_exists($table, self::getAllSections())) {
+            return false;
+        }
+
+        rex_yform_manager_table_api::setTable([
+            'table_name' => $table,
+            'name' => $label,
+        ]);
+        rex_yform_manager_table::deleteCache();
+        self::resetSections();
+
+        return true;
+    }
+
+    /**
+     * Languages the current user may edit.
+     *
+     * Uses the core's `clang` complex permission, the same one the language
+     * selection in the user profile writes to - so there is nothing to
+     * configure twice.
+     *
+     * @return list<rex_clang>
+     */
+    public static function getEditableClangs(): array
+    {
+        $user = rex::getUser();
+        $clangs = [];
+
+        foreach (rex_clang::getAll() as $clang) {
+            if (null === $user || $user->getComplexPerm('clang')->hasPerm($clang->getId())) {
+                $clangs[] = $clang;
+            }
+        }
+
+        return $clangs;
+    }
+
+    /**
+     * Returns the dataset for the given key, creating the row if needed.
+     *
+     * The row has to exist before the form runs: domain_id and clang_id are
+     * plain columns rather than YForm fields, so YForm's db action would not
+     * write them and a freshly inserted row would land on domain 0.
+     *
+     * @param array<string, int> $keys
+     */
+    public static function getDataset(string $table, array $keys): rex_yform_manager_dataset
+    {
+        $sql = rex_sql::factory();
+
+        $conditions = [];
+        $params = [];
+        foreach ($keys as $column => $value) {
+            $conditions[] = $sql->escapeIdentifier($column) . ' = :' . $column;
+            $params[$column] = $value;
+        }
+
+        $rows = $sql->getArray(
+            'SELECT id FROM ' . $sql->escapeIdentifier($table) . ' WHERE ' . implode(' AND ', $conditions) . ' LIMIT 1',
+            $params,
+        );
+
+        if (isset($rows[0]['id'])) {
+            $id = (int) $rows[0]['id'];
+        } else {
+            $insert = rex_sql::factory();
+            $insert->setTable($table);
+            foreach ($keys as $column => $value) {
+                $insert->setValue($column, $value);
+            }
+            $insert->insert();
+            $id = (int) $insert->getLastId();
+
+            // This insert bypasses YForm, so the YFORM_DATA_ADDED hook that
+            // normally drops the cache does not fire here.
+            DomainSettings::deleteCache();
+        }
+
+        $dataset = rex_yform_manager_dataset::get($id, $table);
+
+        if (null === $dataset) {
+            throw new RuntimeException('domain_settings: could not load dataset ' . $id . ' from ' . $table);
+        }
+
+        return $dataset;
+    }
+
+    /**
+     * Renders one editing form.
+     *
+     * Each form gets its own form_name: YForm namespaces its fields as
+     * FORM[<form_name>] (see rex_yform::getFieldName()), so two forms can sit
+     * on the same page without their values colliding. The CSRF token is
+     * derived from that name as well, so both forms are protected separately -
+     * YForm adds the field itself in executeFields().
+     *
+     * @param array<string, int|string> $queryParams
+     */
+    public static function renderForm(rex_yform_manager_dataset $dataset, string $formName, array $queryParams): string
+    {
+        $yform = $dataset->getForm();
+        $yform->setObjectparams('form_name', $formName);
+        // Anchor for the collapsible-groups asset, see assets/domain_settings.js.
+        $yform->setObjectparams('form_class', 'rex-yform domain-settings-form');
+        $yform->setObjectparams('getdata', true);
+        $yform->setObjectparams('form_showformafterupdate', 1);
+
+        // Into the action URL, not into hidden fields: YForm posts to plain
+        // "index.php", so without these the request carries no page, domain or
+        // language at all and the page would fall back to its defaults - which
+        // meant a save in one language overwrote the fallback language.
+        $yform->setObjectparams('form_action_query_params', $queryParams);
+
+        $yform->setValueField('submit', [
+            'name' => 'submit',
+            'labels' => rex_i18n::msg('domain_settings_save'),
+            'no_db' => true,
+            'css_classes' => 'btn-save',
+        ]);
+
+        $form = $dataset->executeForm($yform);
+
+        // YForm reports a completed save through this objparam - the same
+        // signal its own manager uses to decide whether to show a message.
+        $message = $yform->getObjectparams('actions_executed')
+            ? rex_view::success(rex_i18n::msg('domain_settings_saved'))
+            : '';
+
+        return $message . $form;
+    }
+
+    /**
+     * Labels of fields that this language currently takes from the fallback.
+     *
+     * Only fields that are empty here but filled there - so the hint names
+     * exactly what an editor would otherwise read as missing content.
+     *
+     * @return list<string>
+     */
+    public static function getInheritedKeys(string $table, int $domainId, int $clangId): array
+    {
+        $fallbackClangId = DomainSettings::getFallbackClangId();
+        if ($fallbackClangId === $clangId) {
+            return [];
+        }
+
+        // Do not describe a language the user has no permission for, not even
+        // by naming which of its fields are filled.
+        $editableClangIds = array_map(
+            static fn (rex_clang $clang) => $clang->getId(),
+            self::getEditableClangs(),
+        );
+        if (!in_array($fallbackClangId, $editableClangIds, true)) {
+            return [];
+        }
+
+        $managerTable = rex_yform_manager_table::get($table);
+        if (null === $managerTable) {
+            return [];
+        }
+
+        $sql = rex_sql::factory();
+        $rows = $sql->getArray(
+            'SELECT clang_id, ' . $sql->escapeIdentifier($table) . '.* FROM ' . $sql->escapeIdentifier($table)
+            . ' WHERE domain_id = :domain AND clang_id IN (:current, :fallback)',
+            ['domain' => $domainId, 'current' => $clangId, 'fallback' => $fallbackClangId],
+        );
+
+        $byClang = [];
+        foreach ($rows as $row) {
+            $byClang[(int) $row['clang_id']] = $row;
+        }
+
+        $current = $byClang[$clangId] ?? [];
+        $fallback = $byClang[$fallbackClangId] ?? [];
+
+        $labels = [];
+        foreach ($managerTable->getValueFields() as $field) {
+            $name = $field->getName();
+            $isEmptyHere = !isset($current[$name]) || '' === $current[$name];
+            $isFilledThere = isset($fallback[$name]) && '' !== $fallback[$name];
+
+            if ($isEmptyHere && $isFilledThere) {
+                $labels[] = $field->getLabel() ?: $name;
+            }
+        }
+
+        return $labels;
+    }
+
+    /**
+     * Whether the admin has defined any content fields for a table yet.
+     *
+     * A table that only carries its structural columns would render as an
+     * empty form with a save button, which just looks broken.
+     */
+    public static function hasFields(string $table): bool
+    {
+        $managerTable = rex_yform_manager_table::get($table);
+
+        return null !== $managerTable && [] !== $managerTable->getValueFields();
+    }
+
+    /**
+     * Link to the field definitions of a table in the YForm table manager.
+     *
+     * Not HTML-escaped: this URL goes into a Location header, where an escaped
+     * ampersand would arrive as a literal "&amp;" in the query string. Escape
+     * at the point of use when embedding it in markup.
+     */
+    public static function getFieldsUrl(string $table): string
+    {
+        return rex_url::backendPage('yform/manager/table_field', [
+            'table_name' => $table,
+        ], false);
+    }
+}
