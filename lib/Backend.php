@@ -1258,7 +1258,37 @@ final class Backend
     {
         $config = rex_config::get(DomainSettings::ADDON, self::CONFIG_SECTION_DOMAINS, []);
 
-        return is_array($config) ? $config : [];
+        if (!is_array($config)) {
+            return [];
+        }
+
+        // Rebuilt rather than passed through: what comes back from the config
+        // is whatever was written there once, and every caller relies on the
+        // shape.
+        $assignment = [];
+
+        foreach ($config as $table => $ids) {
+            if (!is_string($table) || !is_array($ids)) {
+                continue;
+            }
+
+            // Written out rather than cast: what comes back from the config
+            // is mixed, and anything that is not an id is better dropped than
+            // turned into 0 - which is a real domain.
+            $domainIds = [];
+
+            foreach ($ids as $id) {
+                if (is_int($id)) {
+                    $domainIds[] = $id;
+                } elseif (is_string($id) && ctype_digit($id)) {
+                    $domainIds[] = (int) $id;
+                }
+            }
+
+            $assignment[$table] = $domainIds;
+        }
+
+        return $assignment;
     }
 
     /**
@@ -1268,9 +1298,7 @@ final class Backend
      */
     public static function getSectionDomainIds(string $table): array
     {
-        $ids = self::getSectionDomains()[$table] ?? [];
-
-        return array_values(array_map(intval(...), (array) $ids));
+        return self::getSectionDomains()[$table] ?? [];
     }
 
     /**

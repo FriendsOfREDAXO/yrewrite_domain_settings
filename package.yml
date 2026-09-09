@@ -18,6 +18,10 @@ page:
             title: translate:domain_settings_settings
             perm: admin[]
             icon: rex-icon fa-cog
+        migration:
+            title: translate:domain_settings_migration
+            perm: admin[]
+            icon: rex-icon fa-exchange
         help:
             title: translate:domain_settings_help
             subPath: README.md

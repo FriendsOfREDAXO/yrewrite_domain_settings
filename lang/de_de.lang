@@ -66,3 +66,5 @@ domain_settings_section_domains_none = keine Domain
 domain_settings_section_domains_notice = Bestimmt, in welchen Domains ein Tab zur Bearbeitung angeboten wird - mindestens eine muss gewählt sein, alle gewählt heißt "keine Einschränkung". Bereits gepflegte Werte bleiben erhalten und wirken im Frontend weiter.
 domain_settings_section_domain_orphaned = Für diese Domains bleiben gepflegte Werte bestehen, obwohl der Tab dort nicht mehr angeboten wird: {0}
 domain_settings_no_section_for_domain = Für die Domain "{0}" ist kein Tab freigegeben. Die Zuordnung lässt sich in den Einstellungen ändern.
+domain_settings_migration = Migration
+domain_settings_section_add_title = Neuer Tab

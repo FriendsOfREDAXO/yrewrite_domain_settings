@@ -155,7 +155,12 @@ if (rex::isBackend()) {
             return null;
         }
 
-        $subject = (string) $ep->getSubject();
+        $subject = $ep->getSubject();
+
+        if (!is_string($subject)) {
+            return null;
+        }
+
         $before = $subject;
 
         // The offer to turn domain_id and clang_id into fields.
