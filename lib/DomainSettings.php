@@ -89,9 +89,14 @@ final class DomainSettings
         $domainId ??= self::getCurrentDomainId();
         $clangId ??= rex_clang::getCurrentId();
 
+        $fallbackClangId = self::getFallbackClangId($domainId);
+
+        // Both at once: this method always reads the fallback as well.
+        self::load($domainId, [$clangId, $fallbackClangId]);
+
         $values = [];
 
-        foreach (self::valuesFor($domainId, self::getFallbackClangId($domainId)) as $key => $value) {
+        foreach (self::valuesFor($domainId, $fallbackClangId) as $key => $value) {
             if (!self::isEmpty($value)) {
                 $values[$key] = $value;
             }
@@ -376,12 +381,33 @@ final class DomainSettings
      */
     private static function valuesFor(int $domainId, int $clangId): array
     {
-        if (isset(self::$loaded[$domainId][$clangId])) {
-            return self::$loaded[$domainId][$clangId];
+        self::load($domainId, [$clangId]);
+
+        return self::$loaded[$domainId][$clangId];
+    }
+
+    /**
+     * Reads the sections this domain offers for every language not read yet.
+     *
+     * Through rowsByClang() like every other read in this class, and with all
+     * wanted languages at once: the query builder turns them into one IN()
+     * per section instead of one query per section and language.
+     *
+     * @param list<int> $clangIds
+     */
+    private static function load(int $domainId, array $clangIds): void
+    {
+        $missing = [];
+        foreach ($clangIds as $clangId) {
+            if (!isset(self::$loaded[$domainId][$clangId])) {
+                $missing[$clangId] = $clangId;
+                self::$loaded[$domainId][$clangId] = [];
+            }
         }
 
-        $values = [];
-        $sql = rex_sql::factory();
+        if ([] === $missing) {
+            return;
+        }
 
         foreach (array_keys(Backend::getAllSections()) as $table) {
             // A tab that is not offered on this domain does not answer for it
@@ -391,28 +417,30 @@ final class DomainSettings
                 continue;
             }
 
-            $rows = $sql->getArray(
-                'SELECT * FROM ' . $sql->escapeIdentifier($table) . ' WHERE domain_id = :domain AND clang_id = :clang',
-                ['domain' => $domainId, 'clang' => $clangId],
-            );
+            $byClang = self::rowsByClang($table, $domainId, array_values($missing));
 
-            foreach ($rows as $row) {
+            foreach ($missing as $clangId) {
+                $row = $byClang[$clangId] ?? [];
                 unset($row['id'], $row['domain_id'], $row['clang_id']);
 
                 foreach ($row as $key => $value) {
+                    if (!is_scalar($value) && null !== $value) {
+                        continue;
+                    }
+
                     // A filled value beats an empty one from another tab,
                     // whichever was read first. Opening a tab writes an empty
                     // row even where that tab is not used, and without this
                     // such a placeholder would shadow real content further
                     // down the list of tabs.
-                    if (!isset($values[$key]) || self::isEmpty($values[$key])) {
-                        $values[(string) $key] = (string) $value;
+                    $known = self::$loaded[$domainId][$clangId][(string) $key] ?? null;
+
+                    if (null === $known || self::isEmpty($known)) {
+                        self::$loaded[$domainId][$clangId][(string) $key] = (string) $value;
                     }
                 }
             }
         }
-
-        return self::$loaded[$domainId][$clangId] = $values;
     }
 
     /**
