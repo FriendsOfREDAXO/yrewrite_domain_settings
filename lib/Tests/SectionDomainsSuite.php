@@ -18,6 +18,7 @@ use RuntimeException;
 use function array_key_exists;
 use function count;
 use function in_array;
+use function is_array;
 
 /**
  * Which domains a tab is offered on.
@@ -56,16 +57,16 @@ final class SectionDomainsSuite extends AbstractSuite
     /** @var array<string, mixed> */
     private array $backup = [];
 
-    public function getTitle(): string
-    {
-        return 'Section domains';
-    }
-
     public function setUpBeforeClass(): void
     {
         $this->hadConfig = rex_config::has(DomainSettings::ADDON, self::CONFIG_KEY);
         $config = rex_config::get(DomainSettings::ADDON, self::CONFIG_KEY, []);
         $this->backup = is_array($config) ? $config : [];
+    }
+
+    public function tearDownAfterClass(): void
+    {
+        $this->restore();
     }
 
     /** After every check, not only at the end: a failure must not leak either. */
@@ -74,9 +75,9 @@ final class SectionDomainsSuite extends AbstractSuite
         $this->restore();
     }
 
-    public function tearDownAfterClass(): void
+    public function getTitle(): string
     {
-        $this->restore();
+        return 'Section domains';
     }
 
     /**

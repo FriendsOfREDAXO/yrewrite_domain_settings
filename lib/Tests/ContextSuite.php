@@ -8,6 +8,7 @@ use FriendsOfRedaxo\DomainSettings\Test\AbstractSuite;
 use FriendsOfRedaxo\DomainSettings\Test\Assert;
 use rex_request;
 
+use function count;
 use function in_array;
 
 /**
@@ -65,7 +66,7 @@ class ContextSuite extends AbstractSuite
      */
     private function asAdmin(callable $check): void
     {
-        $this->fixtures->withAdminUser(function () use ($check): void {
+        $this->fixtures->withAdminUser(static function () use ($check): void {
             Backend::resetCaches();
             $check();
         });

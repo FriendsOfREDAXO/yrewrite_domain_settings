@@ -14,28 +14,56 @@ zu redaxo.org.
 
 ### Altes globals-Repo abschließen
 
-`marcohanke/globals` steht noch; archivieren, sobald das erste Release aus
-dieser Reihe draußen ist und stabil läuft. 2.4.0 wurde nie veröffentlicht, es
-wird 2.5.0.
+Erledigt am 2026-09-11: `marcohanke/globals` ist gelöscht, lokaler Checkout
+und Symlink ebenso. 2.4.0 wurde nie veröffentlicht, das erste Release dieser
+Reihe ist 2.5.0.
 
 ## Größere Themen, offen entschieden
 
 ### Import aus global_settings
 
-Kommt nur in Frage, wenn dieses Addon auch als Nachfolger von
-`global_settings` auftreten soll. Dort liegt ein eigenes Feldtypen-System
-(`rex_global_settings_type`/`_field`), eine Wide-Table mit `clang` als
-Primärschlüssel und PHP-Callbacks als Code-String in der Datenbank — ein
-deutlich größerer Umbau als die Sprachachse hier. Handarbeit bliebe: Options-
-Listen von select/radio/checkbox, Colorpicker (kein YForm-Gegenstück),
-Callbacks. Pipe-getrennte Mehrfachwerte (`|a|b|`) müssten umgesetzt, der
-`glob_`-Prefix aus den Feldnamen entfernt werden.
+Analysiert am 2026-09-11, Konzept steht, gebaut ist nichts. Eigener Branch
+nach dem 2.5.0-Release.
 
-Der Platz dafür steht seit 2.5.0: Die Seite **Migration**
-(`pages/migration.php`) gibt es, sie trägt bisher nur „Daten übertragen". Ein
-Import gehörte dorthin — sie ist genau für das gemacht, was einmalig
-gespeicherte Daten umschreibt, und hat CSRF-Schutz und Rechteprüfung schon
-verdrahtet. Gebaut ist davon nichts.
+**Korrektur zur früheren Einschätzung:** `global_settings` **ist**
+mehrsprachig — eine Zeile je `clang` (`_install.sql:28-31`), also 1:1 auf
+`clang_id` abbildbar. Genau die Sprachachse galt als Hauptgrund für „größerer
+Umbau"; der Aufwand ist **mittel**. Ebenfalls korrigiert: Callbacks sind
+migrierbar. YForm führt PHP-Code aus der Felddefinition selbst aus
+(`yform/lib/Field/action/php.php`, `eval('?>' . $php . '<?php ')`), Actions
+sind reguläre Tabellenfelder (`rex_yform_manager_field::$types`) und laufen
+nach erfolgreichem Speichern (`yform/lib/yform.php:453`) — dasselbe Timing wie
+`fireCallbacks()` drüben.
+
+Automatisch: alle einwertigen Felder, Media- und Link-Listen (beide Seiten
+komma-separiert), Datum/Zeit (Unix-Timestamp → SQL, `0` = NULL), boolesche
+Checkbox (`|true|` → `1`), Mehrfachwerte (`|a|b|` → `a,b`), `glob_`-Prefix
+strippen, Optionslisten in Pipe-Form.
+
+**Falle:** `global_settings` schreibt `wert:Label`, YForms `choice` erwartet
+JSON `{"Label":"wert"}` — vertauschte Reihenfolge. Wer sie dreht, macht alle
+gespeicherten Werte tot.
+
+Handarbeit bleibt: SQL-Optionslisten (YForm will benannte Spalten
+`value`/`label`, global_settings liest Spalte 0/1 — automatisch nur bei
+eindeutigen Queries, sonst melden), Colorpicker (Wert wandert als Text, das
+Widget hat kein Gegenstück), feldweise Rechte (Ziel kennt sie nur je Tab),
+selbst registrierte Feldtypen (`rex_global_settings_add_field_type()`).
+
+**Geplante Oberfläche** auf der Seite Migration, sichtbar nur bei
+installiertem `global_settings`: Ziel-Auswahl (Standardtabelle oder ein
+vorhandener Tab oder ein neuer) mit Warnung „bestehende Daten in dieser
+Tabelle werden gelöscht", Hauptdomain vorausgewählt, Sprachen 1:1. Erst eine
+**Vorschau** (Feld, Quelltyp → Zieltyp, was Handarbeit braucht, Callbacks im
+Klartext), dann der schreibende Schritt. Callbacks werden **aktiv**
+importiert — sie laufen heute auch —, der Code landet als Datei unter
+`redaxo/data/addons/yrewrite_domain_settings/callbacks/`, die Action trägt
+Präambel (`$fieldName`, `$fieldValue`) und `require`. Aufrufe von
+`rex_global_settings::` im Callback-Code meldet die Vorschau: Sie lesen nach
+dem Import weiter die alten Daten und brechen, sobald das Addon deinstalliert
+wird.
+
+Testplatz: `trash.localhost`.
 
 ### Spezialfelder, die der template_manager hat
 
@@ -63,7 +91,7 @@ eigener Umbau.
   bewusst offen gelassen, weil es Schreiben in fremde Rollen-Datensätze
   bedeutet. Die Domain-Zuordnung des Tabs wird beim Löschen dagegen
   mitentfernt.
-- **`Backend.php`** ist mit rund 1400 Zeilen mit Abstand die größte Datei und
+- **`Backend.php`** ist mit rund 1370 Zeilen mit Abstand die größte Datei und
   macht inzwischen Domains, Sprachen, Tabs, deren Domain-Zuordnung und das
   Rendern der Kontextzeile. Teilen ist überfällig — der Schnitt liegt nahe:
   Tabs und ihre Zuordnung auf der einen Seite, das Rendern der Oberfläche auf
@@ -73,21 +101,20 @@ eigener Umbau.
   würde als Tab gelten.
 - **Validatoren** laufen beim Speichern über den Datensatz — auf dem
   Lese-Cache-Pfad wird bewusst direkt per `rex_sql` gelesen.
-- **`Backend::getInheritedKeys()`** hat seit 2.5.0 keinen Aufrufer mehr: Der
-  Fallback-Hinweis nennt nur noch die Regel. Entweder wieder verwenden oder
-  entfernen.
-- **Alte Tab-Lesezeichen** laufen ins Leere und landen auf dem ersten Tab.
-  Eine Umleitung von `page=yrewrite_domain_settings/<slug>` auf
-  `…/data&section=<slug>` wäre machbar, hieße aber, jeden Slug wieder als
-  Backend-Seite anzumelden — bewusst nicht gebaut.
+- **Alte Tab-Lesezeichen** werden umgeleitet: `PAGES_PREPARED` meldet jeden
+  Slug als versteckte Seite an, `pages/redirect.php` schickt weiter auf
+  `…/data&section=<slug>`. Kostet eine Seitenanmeldung pro Tab — ohne sie
+  würde der Controller eine unbekannte Seite zur Startseite schicken.
 - **Die Seite Migration ist leer**, wenn es nur eine Domain und eine Sprache
   gibt: Es gibt dann nichts zu kopieren. Sie erscheint trotzdem in der
   Navigation.
 
 ## Erledigt, nicht weiterverfolgen
 
-- Tests ins Repo holen — erledigt: `console domain-settings:test`, 58
-  Prüfungen in sieben Suiten unter `lib/Tests/`, Infrastruktur in `lib/Test/`.
+- Tests ins Repo holen — erledigt: `console domain-settings:test`, 70
+  Prüfungen in acht Suiten unter `lib/Tests/`, Infrastruktur in `lib/Test/`.
+  Aufbau wie bei YForm: Console-Commands gegen die laufende Installation,
+  ausgeliefert statt vom Release ausgeschlossen.
   Nachgewiesen, dass sie echte Fehler fangen: beim Schreiben der
   Legacy-Suite fielen zwei auf, die sonst erst im Feld aufgefallen wären.
 

@@ -3,7 +3,7 @@
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
-## [2.5.0] — unveröffentlicht
+## [2.5.0] — 2026-09-11
 
 Die Oberfläche ist umgebaut: Domain, Tab und Sprache stehen jetzt gemeinsam auf
 **einer** Seite statt verteilt über die Backend-Navigation. Datenstruktur, API
@@ -136,7 +136,7 @@ damit dem Verhalten von 2.4.0 entspricht.
 
 Einzige spürbare Änderung sind die Backend-URLs der Tabs, siehe „Geändert".
 
-## [2.4.0] — unveröffentlicht
+## [2.4.0] — nie veröffentlicht, vollständig in 2.5.0 enthalten
 
 Werte sind ab jetzt je Sprache pflegbar und lassen sich in Tabs aufteilen.
 **Bestehender Code läuft unverändert weiter** — Details im

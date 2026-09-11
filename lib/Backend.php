@@ -31,12 +31,16 @@ use rex_yrewrite_domain;
 use RuntimeException;
 
 use function array_key_exists;
-use function rex_escape;
 use function count;
 use function in_array;
+use function is_array;
+use function is_int;
+use function is_string;
+use function rex_escape;
 use function strlen;
 
 use const ARRAY_FILTER_USE_KEY;
+use const PHP_SESSION_ACTIVE;
 
 /**
  * Helpers for the editing page.
@@ -57,6 +61,13 @@ final class Backend
      * scope at the other one's table.
      */
     private const RESERVED_SLUGS = ['main', 'data', 'settings', 'migration', 'help'];
+
+    /** Config key holding the section-to-domain assignment. */
+    private const CONFIG_SECTION_DOMAINS = 'section_domains';
+
+    /** Session keys carrying the editing context from one page to the next. */
+    private const SESSION_DOMAIN = 'domain_settings_domain_id';
+    private const SESSION_CLANG = 'domain_settings_clang_id';
     /**
      * Section list for this request.
      *
@@ -110,13 +121,6 @@ final class Backend
      * @var array<int, int>
      */
     private static array $activeClangIds = [];
-
-    /** Config key holding the section-to-domain assignment. */
-    private const CONFIG_SECTION_DOMAINS = 'section_domains';
-
-    /** Session keys carrying the editing context from one page to the next. */
-    private const SESSION_DOMAIN = 'domain_settings_domain_id';
-    private const SESSION_CLANG = 'domain_settings_clang_id';
 
     /**
      * Every domain known to the system, as id => label.
