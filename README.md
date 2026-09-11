@@ -152,13 +152,22 @@ in [TODO.md](TODO.md), Änderungen im [CHANGELOG](CHANGELOG.md).
 
 [Issue anlegen](https://github.com/FriendsOfREDAXO/yrewrite_domain_settings/issues)
 
-## Autoren
+## Autor
 
-**Friends Of REDAXO** — <https://github.com/FriendsOfREDAXO>
+**Friends Of REDAXO**
 
-Projekt-Lead und First Release: [Daniel Steffen](https://github.com/novinet-dsteffen)
+* https://www.redaxo.org
+* https://github.com/FriendsOfREDAXO
 
-Mitwirkende: [Marco Hanke](https://github.com/marcohanke)
+## Projekt-Lead
+
+* [Marco Hanke](https://github.com/marcohanke)
+
+## Credits
+
+Danke an:
+
+* [Daniel Steffen](https://github.com/novinet-dsteffen) // first release
 
 ## Lizenz
 
