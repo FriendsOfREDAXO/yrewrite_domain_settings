@@ -3,7 +3,10 @@
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
-## [Unveröffentlicht]
+## [2.5.0-beta2] — 2026-09-11
+
+Zweite Testversion: beta1 plus das Deinstallieren und die nachgezogene
+Dokumentation.
 
 ### Hinzugefügt
 
@@ -12,6 +15,19 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   Tabellen auch halten. Eine Tabelle wird nur angefasst, wenn sie `domain_id`
   und `clang_id` trägt; eine Projekttabelle mit gleichem Präfix bleibt stehen.
   Was gelöscht wurde, steht danach im `system.log`.
+
+### Dokumentation
+
+- README: Abschnitt **Schutz** — der abgefangene Table-Manager-Knopf, das
+  entfernte Feld-Angebot für `domain_id`/`clang_id` und die Medienpool-Sperre
+  standen bisher nur im Changelog
+- README: Abschnitt **Deinstallieren**, Screenshot der Seite **Migration**
+
+### Geändert
+
+- `.phpstorm.meta.php` wird nicht mehr versioniert — die Datei listet die
+  Feldnamen der Installation, die zuletzt ihren Cache geleert hat
+- `TODO.md` wird nicht mehr mit ausgeliefert
 
 ## [2.5.0-beta1] — 2026-09-11
 

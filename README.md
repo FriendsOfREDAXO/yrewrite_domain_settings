@@ -1,7 +1,7 @@
 # YRewrite Domain Settings
 
 > [!IMPORTANT]
-> **2.5.0-beta1 — Testversion.** Das Update von 2.3.0 ist **ohne Breaking
+> **2.5.0-beta2 — Testversion.** Das Update von 2.3.0 ist **ohne Breaking
 > Changes** möglich: Datenstruktur, `yrewrite_domain_settings`,
 > `REX_DOMAIN_SETTING` und die REST-Routen bleiben unverändert, `migrate.php`
 > läuft automatisch und idempotent. Trotzdem: **bitte ausführlich testen** und
