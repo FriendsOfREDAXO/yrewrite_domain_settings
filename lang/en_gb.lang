@@ -22,6 +22,7 @@ domain_settings_domains = Domain settings: domains
 domain_settings_domains_all = all domains
 domain_settings_section_fields = Fields
 domain_settings_back_to_values = Back to domain settings
+domain_settings_structure_protected = This table belongs to the domain settings. Its domain_id and clang_id columns decide which record is read and written - "update table with field deletion" would drop them and take every stored value with it. The action was refused.
 domain_settings_edit_fields = Edit fields
 domain_settings_fallback_clang = Language
 domain_settings_fallback_title = Fallback
