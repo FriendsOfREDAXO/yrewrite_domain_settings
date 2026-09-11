@@ -907,52 +907,6 @@ final class Backend
     }
 
     /**
-     * Labels of fields that this language currently takes from the fallback.
-     *
-     * Only fields that are empty here but filled there - so the hint names
-     * exactly what an editor would otherwise read as missing content.
-     *
-     * @return list<string>
-     */
-    public static function getInheritedKeys(string $table, int $domainId, int $clangId): array
-    {
-        $fallbackClangId = DomainSettings::getFallbackClangId($domainId);
-        if ($fallbackClangId === $clangId) {
-            return [];
-        }
-
-        // Do not describe a language the user has no permission for, not even
-        // by naming which of its fields are filled.
-        if (!in_array($fallbackClangId, self::getEditableClangIds($domainId), true)) {
-            return [];
-        }
-
-        $managerTable = rex_yform_manager_table::get($table);
-        if (null === $managerTable) {
-            return [];
-        }
-
-        // Both languages in one query - the builder turns the array into IN().
-        $byClang = DomainSettings::rowsByClang($table, $domainId, [$clangId, $fallbackClangId]);
-
-        $current = $byClang[$clangId] ?? [];
-        $fallback = $byClang[$fallbackClangId] ?? [];
-
-        $labels = [];
-        foreach ($managerTable->getValueFields() as $field) {
-            $name = (string) $field->getName();
-            $isEmptyHere = !isset($current[$name]) || '' === $current[$name];
-            $isFilledThere = isset($fallback[$name]) && '' !== $fallback[$name];
-
-            if ($isEmptyHere && $isFilledThere) {
-                $labels[] = (string) $field->getLabel() ?: $name;
-            }
-        }
-
-        return $labels;
-    }
-
-    /**
      * Whether the admin has defined any content fields for a table yet.
      *
      * A table that only carries its structural columns would render as an

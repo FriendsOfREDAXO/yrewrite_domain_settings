@@ -48,7 +48,6 @@ if ([] === $clangs) {
     return;
 }
 
-$clangIds = array_map(static fn (rex_clang $clang) => $clang->getId(), $clangs);
 $fallbackClangId = DomainSettings::getFallbackClangId($domainId);
 $clangId = Backend::getActiveClangId($domainId);
 
