@@ -2,23 +2,19 @@
 
 class rex_yrewrite_domains_select extends rex_select
 {
+    private bool $loaded = false;
 
-    /**
-     * @var bool
-     */
-    private $loaded = false;
-
-    public function __construct()
+    /** @return list<array{domain: string, id: string}> */
+    public static function getDomains()
     {
-        parent::__construct();
-    }
-
-    public static function getDomains() {
-        $aDomains = array();
+        $aDomains = [];
         $sql = rex_sql::factory();
-        $sql->setQuery("SELECT * FROM " . rex::getTable("yrewrite_domain") . " ORDER BY domain ASC");
+        $sql->setQuery('SELECT * FROM ' . rex::getTable('yrewrite_domain') . ' ORDER BY domain ASC');
         foreach ($sql as $oItem) {
-            array_push($aDomains,array("domain" => $oItem->getValue("domain"),"id" => $oItem->getValue("id")));
+            $aDomains[] = [
+                'domain' => (string) $oItem->getValue('domain'),
+                'id' => (string) $oItem->getValue('id'),
+            ];
         }
         return $aDomains;
     }
@@ -27,9 +23,8 @@ class rex_yrewrite_domains_select extends rex_select
     {
         if (!$this->loaded) {
             $aDomains = $this->getDomains();
-            foreach($aDomains AS $aDomain) {
-                $this->addOption($aDomain["domain"], $aDomain["id"]);
-
+            foreach ($aDomains as $aDomain) {
+                $this->addOption($aDomain['domain'], $aDomain['id']);
             }
             $this->loaded = true;
         }

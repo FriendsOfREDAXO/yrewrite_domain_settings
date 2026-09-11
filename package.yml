@@ -1,13 +1,56 @@
 package: yrewrite_domain_settings
-version: '2.3.0'
+version: '2.5.0-beta1'
 author: Friends Of REDAXO
 supportpage: https://github.com/FriendsOfREDAXO/yrewrite_domain_settings
-    
-requires:
-    redaxo: '^5.5'
-    packages:
-        yrewrite: '^2.5'
-        yform: '>3.0, <6'
-    php:
-        version: '>=5.6'
 
+page:
+    title: translate:domain_settings_title
+    perm: yrewrite_domain_settings[]
+    icon: rex-icon fa-globe
+    subpages:
+        data:
+            title: translate:domain_settings_data
+            # The file keeps its name: it renders the values, the page is
+            # called "Daten" because that is what an editor looks for.
+            subPath: pages/values.php
+            icon: rex-icon fa-pencil
+        settings:
+            title: translate:domain_settings_settings
+            perm: admin[]
+            icon: rex-icon fa-cog
+        migration:
+            title: translate:domain_settings_migration
+            perm: admin[]
+            icon: rex-icon fa-exchange
+        help:
+            title: translate:domain_settings_help
+            perm: admin[]
+            subPath: README.md
+            itemClass: 'pull-right'
+            icon: 'rex-icon fa-info-circle'
+
+console_commands:
+    domain-settings:ide-helper: FriendsOfRedaxo\DomainSettings\Command\IdeHelperCommand
+    domain-settings:test: FriendsOfRedaxo\DomainSettings\Command\TestCommand
+
+requires:
+    redaxo: '^5.17'
+    php:
+        version: '^8.1'
+    packages:
+        yform: '^5.0'
+        yrewrite: '^2.5'
+
+installer_ignore:
+    - .git
+    - .github
+    - .gitignore
+    # Generated from the field names of whatever installation ran
+    # domain-settings:ide-helper, so shipping it would hand out foreign
+    # completions.
+    - .phpstorm.meta.php
+    - .php-cs-fixer.dist.php
+    - .php-cs-fixer.cache
+    - composer.json
+    - composer.lock
+    - vendor

@@ -1,0 +1,427 @@
+/* Collapsible field groups and language tabs.
+   Built on YForm's own fieldset value type and bootstrap markup rather than a
+   custom value type, so nothing here depends on YForm internals. */
+
+.domain-settings-form fieldset > legend {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 1.5em;
+}
+
+.domain-settings-form fieldset > legend::after {
+    content: "\f078"; /* fa-chevron-down */
+    font-family: FontAwesome;
+    position: absolute;
+    right: 0;
+    font-size: .7em;
+    top: .45em;
+    transition: transform .15s ease;
+}
+
+.domain-settings-form fieldset.domain-settings-collapsed > legend::after {
+    transform: rotate(-90deg);
+}
+
+.domain-settings-form fieldset.domain-settings-collapsed > *:not(legend) {
+    display: none;
+}
+
+/* Language tabs.
+
+   REDAXO's dark theme leaves native bootstrap tabs unstyled on purpose
+   ("redaxo uses custom tab markup", be_style/…/bootstrap-dark-overrides/_navs.scss)
+   and only dresses `.nav-tabs > li > .btn-default` - which it makes *lighter*
+   than the panel. That reads upside down for tabs, so the roles are swapped
+   here: the active tab takes the panel's own background and covers the rule,
+   the inactive ones sit back a shade with dimmed text.
+
+   Colours are be_style's own: panel background #202b35, body #1b232c, and the
+   rule matches `legend`'s border rgba(21,28,34,.5). */
+
+.domain-settings-tabs {
+    border-bottom: 1px solid #dfe3e9;
+    margin-bottom: 20px;
+}
+
+.domain-settings-tabs > li > a.btn {
+    border-radius: 4px 4px 0 0;
+    margin-right: 2px;
+    background-color: #f0f0f0;
+    border-color: #dfe3e9;
+    color: #777;
+}
+
+.domain-settings-tabs > li > a.btn:hover,
+.domain-settings-tabs > li > a.btn:focus {
+    background-color: #e8e8e8;
+    color: #333;
+}
+
+/* The active tab is a continuation of the panel: same background, and its
+   bottom border repaints the rule so the two read as one surface. */
+.domain-settings-tabs > li.active > a.btn,
+.domain-settings-tabs > li.active > a.btn:hover,
+.domain-settings-tabs > li.active > a.btn:focus {
+    background-color: #fff;
+    border-color: #dfe3e9;
+    border-bottom-color: #fff;
+    margin-bottom: -1px;
+    color: #333;
+    cursor: default;
+}
+
+body.rex-theme-dark .domain-settings-tabs {
+    border-bottom-color: rgba(21, 28, 34, .5);
+}
+
+body.rex-theme-dark .domain-settings-tabs > li > a.btn {
+    background-color: #1b232c;
+    border-color: rgba(21, 28, 34, .8);
+    color: rgba(255, 255, 255, .45);
+}
+
+body.rex-theme-dark .domain-settings-tabs > li > a.btn:hover,
+body.rex-theme-dark .domain-settings-tabs > li > a.btn:focus {
+    background-color: #18202a;
+    color: rgba(255, 255, 255, .75);
+}
+
+body.rex-theme-dark .domain-settings-tabs > li.active > a.btn,
+body.rex-theme-dark .domain-settings-tabs > li.active > a.btn:hover,
+body.rex-theme-dark .domain-settings-tabs > li.active > a.btn:focus {
+    background-color: #202b35;
+    border-color: rgba(21, 28, 34, .5);
+    border-bottom-color: #202b35;
+    color: rgba(255, 255, 255, .75);
+}
+
+@media (prefers-color-scheme: dark) {
+    body:not(.rex-theme-light) .domain-settings-tabs {
+        border-bottom-color: rgba(21, 28, 34, .5);
+    }
+
+    body:not(.rex-theme-light) .domain-settings-tabs > li > a.btn {
+        background-color: #1b232c;
+        border-color: rgba(21, 28, 34, .8);
+        color: rgba(255, 255, 255, .45);
+    }
+
+    body:not(.rex-theme-light) .domain-settings-tabs > li > a.btn:hover,
+    body:not(.rex-theme-light) .domain-settings-tabs > li > a.btn:focus {
+        background-color: #18202a;
+        color: rgba(255, 255, 255, .75);
+    }
+
+    body:not(.rex-theme-light) .domain-settings-tabs > li.active > a.btn,
+    body:not(.rex-theme-light) .domain-settings-tabs > li.active > a.btn:hover,
+    body:not(.rex-theme-light) .domain-settings-tabs > li.active > a.btn:focus {
+        background-color: #202b35;
+        border-color: rgba(21, 28, 34, .5);
+        border-bottom-color: #202b35;
+        color: rgba(255, 255, 255, .75);
+    }
+}
+
+
+/* Section list on the settings page.
+
+   A grid, not a table (see pages/settings.php): a row of a text field, a
+   multi select and two buttons needs more width than the panel has until the
+   window is very wide, and a table row cannot reflow - it is simply cut off.
+
+   Below the small breakpoint every column takes a line of its own, from there
+   the three fields sit side by side with the buttons on the line below, and
+   from the large breakpoint on the row is one line.
+
+   The list follows the create panel, so it needs room to read as a step of
+   its own. */
+
+.domain-settings-sections {
+    margin-top: 35px;
+}
+
+.domain-settings-section-row {
+    display: flex;
+    flex-wrap: wrap;
+    /* Between wrapped lines only: a column gap would be added to the 100%
+       columns and push them out of the row. */
+    row-gap: 12px;
+}
+
+/* Top, not centre: the name field carries the table name below it and is
+   taller than the rest, and centring the row would push the select and the
+   count half a line below the field they belong next to. */
+
+.domain-settings-section-row {
+    align-items: flex-start;
+    padding: 20px 0;
+    border-bottom: 1px solid #dfe3e9;
+}
+
+/* More air around a row as long as it wraps: below 1400px the buttons sit on
+   a line of their own, so the rule above and below a row is what separates
+   one tab from the next - and that step has to read as bigger than the gaps
+   inside a single row. From 1400px everything is on one line and the row is
+   its own unit again. */
+
+@media (max-width: 1399px) {
+    .domain-settings-section-row {
+        padding: 40px 0;
+    }
+}
+
+/* The heading row is hidden on a phone, so the gap that keeps it clear of the
+   panel title has nothing left to space out - it would simply stack on the
+   first row's own padding and set that row further in than every other. */
+
+@media (max-width: 767px) {
+    .domain-settings-sections {
+        margin-top: 0;
+    }
+}
+
+/* One heading per column, so a row reads the same whether its columns sit
+   side by side or stacked. Bootstrap's own label weight and spacing, applied
+   to the span above the field count as well - it is a heading like the other
+   two, it just has no form control to point at. */
+
+.domain-settings-col-label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 700;
+}
+
+/* The technical table name is one long word without a break opportunity -
+   left alone it keeps its column from ever getting narrow. */
+
+.domain-settings-section-table {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+/* The buttons only need their stand-in label while they share a line with
+   the fields; on their own line it would be a blank gap above them. */
+
+.domain-settings-col-actions > .domain-settings-col-label {
+    display: none;
+}
+
+@media (min-width: 1400px) {
+    .domain-settings-col-actions > .domain-settings-col-label {
+        display: block;
+    }
+}
+
+.domain-settings-section-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* The save button follows the last row directly, where the table's cell
+   padding used to keep it clear of the line above. */
+
+.domain-settings-sections > .btn {
+    margin-top: 20px;
+}
+
+/* One line per row - from 1400px, not from bootstrap's large breakpoint: at
+   1200 the backend navigation takes 250 of them and both buttons no longer
+   fit beside the three fields, so the promise of one line would not hold. */
+
+@media (min-width: 1400px) {
+    /* Widths of their own instead of grid classes: the field count is two
+       short words and the buttons are as wide as their labels - in fixed
+       twelfths the one is cramped and the other half empty. */
+
+    .domain-settings-section-row > .domain-settings-col-name {
+        width: 30%;
+    }
+
+    .domain-settings-section-row > .domain-settings-col-domains {
+        width: 26%;
+    }
+
+    /* A share of the line rather than its own width: the count is what it is
+       per row ("0 Felder", "16 Felder"), and a column as wide as its content
+       would start the buttons at a different place in every row. */
+
+    .domain-settings-section-row > .domain-settings-col-count {
+        width: 10%;
+        white-space: nowrap;
+    }
+
+    /* The rest of the line, with the buttons at its left edge: they line up
+       across rows, and a row without a delete button leaves its gap at the
+       far right rather than shifting the other button around. */
+
+    .domain-settings-section-row > .domain-settings-col-actions {
+        flex: 1 1 auto;
+        width: auto;
+    }
+}
+
+body.rex-theme-dark .domain-settings-section-row {
+    border-bottom-color: rgba(21, 28, 34, .5);
+}
+
+@media (prefers-color-scheme: dark) {
+    body:not(.rex-theme-light) .domain-settings-section-row {
+        border-bottom-color: rgba(21, 28, 34, .5);
+    }
+}
+
+
+/* Sits next to the save button rather than below it - YForm renders the html
+   field right after the submit, so only the spacing has to be added. */
+.domain-settings-form-actions {
+    margin-left: 16px;
+}
+
+
+/* Domain switcher above the section tabs.
+
+   Not a panel: the domain is the context the page is edited in, so it reads
+   as a strip belonging to the tabs above it, not as a setting of its own. */
+
+.domain-settings-context {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    margin: -10px 0 20px;
+    padding: 8px 0;
+}
+
+/* The select takes the room up to the language switch, the way the structure
+   page lets its category select fill the line. */
+
+.domain-settings-context > form {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.domain-settings-context .form-group {
+    display: flex;
+    align-items: center;
+    margin: 0;
+}
+
+/* display is set explicitly: the backend puts labels on their own line, which
+   is right inside a form and wrong for a one-line context strip. */
+
+.domain-settings-context label {
+    display: inline-block;
+    margin: 0 8px 0 0;
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+/* The backend wraps every select in .rex-select-style, a block element -
+   without this the label would sit on its own line above the field. */
+
+.domain-settings-context .rex-select-style {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.domain-settings-context select {
+    width: 100%;
+}
+
+/* Section tabs: the row the panel below hangs from.
+
+   The panel provides the line the tabs sit on, so the row carries no border
+   of its own and no gap - the active tab covers that line with its own
+   background and the two read as one surface. */
+
+.domain-settings-section-tabs {
+    border-bottom: 0;
+    margin-bottom: 0;
+}
+
+.domain-settings-section-tabs > li > a.btn {
+    /* A shade heavier than the language tabs inside the panel, so two similar
+       rows still read as two levels rather than one long list. */
+    font-weight: 600;
+    padding: 7px 16px;
+    background-color: #e9edf3;
+}
+
+.domain-settings-section-tabs > li.active > a.btn {
+    /* Above the panel: without it the panel's own border is painted over the
+       tab and the seam stays visible. */
+    position: relative;
+    z-index: 1;
+}
+
+.domain-settings-section-tabs + .panel {
+    margin-top: 0;
+}
+
+body.rex-theme-dark .domain-settings-section-tabs > li.active > a.btn,
+body.rex-theme-dark .domain-settings-section-tabs > li.active > a.btn:hover,
+body.rex-theme-dark .domain-settings-section-tabs > li.active > a.btn:focus {
+    border-bottom-color: #202b35;
+}
+
+@media (prefers-color-scheme: dark) {
+    body:not(.rex-theme-light) .domain-settings-section-tabs > li.active > a.btn,
+    body:not(.rex-theme-light) .domain-settings-section-tabs > li.active > a.btn:hover,
+    body:not(.rex-theme-light) .domain-settings-section-tabs > li.active > a.btn:focus {
+        border-bottom-color: #202b35;
+    }
+}
+
+/* The language buttons share the strip with the domain select. The core
+   floats .rex-nav-language right only from the large breakpoint on; here the
+   strip is one line at every width, so it floats right throughout. */
+
+.domain-settings-context .domain-settings-languages {
+    flex: 0 0 auto;
+    /* Right-aligned on its own: with a single domain there is no select to
+       push it over, and it would sit at the left edge. */
+    margin-left: auto;
+}
+
+.domain-settings-context .rex-nav-language {
+    /* The core floats it right from the large breakpoint on and carries a
+       bottom margin for its usual place under the page header. Both throw off
+       the flex line here: the margin makes the box taller than the buttons, so
+       centring it puts them half a margin too high. */
+    float: none;
+    margin: 0;
+}
+
+.domain-settings-context .btn-toolbar {
+    margin: 0;
+}
+
+/* The import preview: three narrow columns and one that carries prose. Left to
+   itself the browser splits the width evenly, which wraps the headings while
+   the notes column stays half empty. */
+
+.domain-settings-import-table th,
+.domain-settings-import-table td {
+    vertical-align: top;
+}
+
+@media (min-width: 768px) {
+    .domain-settings-import-table th:nth-child(1),
+    .domain-settings-import-table td:nth-child(1) {
+        width: 22%;
+    }
+
+    .domain-settings-import-table th:nth-child(2),
+    .domain-settings-import-table td:nth-child(2) {
+        width: 18%;
+    }
+
+    .domain-settings-import-table th:nth-child(3),
+    .domain-settings-import-table td:nth-child(3) {
+        width: 10%;
+        white-space: nowrap;
+    }
+}
+

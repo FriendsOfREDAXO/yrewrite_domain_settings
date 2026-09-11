@@ -1,0 +1,193 @@
+<?php
+
+namespace FriendsOfRedaxo\DomainSettings\Test;
+
+use FriendsOfRedaxo\DomainSettings\Backend;
+use FriendsOfRedaxo\DomainSettings\DomainSettings;
+use rex;
+use rex_clang;
+use rex_sql;
+use rex_sql_table;
+use rex_user;
+use rex_yform_manager_table;
+use rex_yform_manager_table_api;
+use RuntimeException;
+
+/**
+ * Test data that cannot collide with real content.
+ *
+ * Two safeguards, both deliberate: everything lives in a section of its own
+ * that is created and dropped around the run, and every row uses a domain id
+ * far outside anything yrewrite hands out. During development the throwaway
+ * scripts wrote to the real table and took editorial data with them twice -
+ * that must not happen from a command that ships with the addon.
+ */
+final class Fixtures
+{
+    /** Section table used by the tests; created on setUp, dropped on tearDown. */
+    public const SECTION_SUFFIX = 'selftest';
+
+    /** Far outside anything yrewrite assigns, so real rows are never touched. */
+    public const DOMAIN_ID = 999001;
+
+    private ?string $table = null;
+
+    public function setUp(): void
+    {
+        $table = rex::getTable(DomainSettings::ADDON) . '_' . self::SECTION_SUFFIX;
+
+        // Never drop a section that was not ours: a project with a section
+        // actually named "Selftest" would lose it here, before createSection()
+        // below ever complains.
+        if (null !== rex_yform_manager_table::get($table)) {
+            throw new RuntimeException(
+                'A section named "Selftest" already exists (' . $table . '). '
+                . 'The test suite refuses to touch it - rename it and run again.',
+            );
+        }
+
+        $created = Backend::createSection('Selftest');
+
+        if (null === $created) {
+            throw new RuntimeException('Could not create the test section ' . $table);
+        }
+
+        $this->table = $created;
+
+        foreach ([
+            ['selftest_text', 'text'],
+            ['selftest_flag', 'text'],
+        ] as [$name, $type]) {
+            rex_yform_manager_table_api::setTableField($created, [
+                'prio' => 1,
+                'type_id' => 'value',
+                'type_name' => $type,
+                'name' => $name,
+                'label' => $name,
+                'list_hidden' => 0,
+                'search' => 0,
+            ]);
+        }
+
+        $managerTable = rex_yform_manager_table::get($created);
+        if (null === $managerTable) {
+            throw new RuntimeException('Could not load the test section ' . $created);
+        }
+
+        // setTableField() and generateTableAndFields() clear YForm's cache
+        // themselves; only our own static needs resetting.
+        rex_yform_manager_table_api::generateTableAndFields($managerTable);
+        Backend::resetCaches();
+        DomainSettings::deleteCache();
+    }
+
+    public function tearDown(): void
+    {
+        // Only ever remove what setUp() created. The caller runs this from a
+        // catch *and* a finally, so without this guard the refusal to touch a
+        // foreign "Selftest" section would be followed by deleting it anyway.
+        if (null === $this->table) {
+            return;
+        }
+
+        $table = $this->table;
+
+        if (null !== rex_yform_manager_table::get($table)) {
+            rex_yform_manager_table_api::removeTable($table);
+        }
+
+        // Through rex_sql_table so its instance pool learns the table is gone.
+        // The name comes from createSection(), which never returns an empty
+        // string - the check is here because rex_sql_table::get() asks for it.
+        if ('' !== $table) {
+            rex_sql_table::get($table)->drop();
+        }
+
+        $this->table = null;
+        Backend::resetCaches();
+        DomainSettings::deleteCache();
+    }
+
+    public function table(): string
+    {
+        if (null === $this->table) {
+            throw new RuntimeException('Fixtures not set up');
+        }
+
+        return $this->table;
+    }
+
+    /**
+     * Runs a callback with an administrator in place.
+     *
+     * The console has no user, and the permission filters are fail-closed -
+     * without this, every test that touches them would compare two empty
+     * lists and pass without asking anything.
+     *
+     * The user is built rather than borrowed: rex_user reads its values from
+     * the rex_sql it is given, and getValue() answers from the values set on
+     * it before ever touching the database. That is how the core does it in
+     * its own tests (core/tests/be/navigation_test.php), it needs no
+     * administrator to exist on this instance, and it leaves real accounts
+     * alone.
+     *
+     * Meant for read-only checks. Anything saved inside the callback would
+     * record this stand-in as its author.
+     */
+    public function withAdminUser(callable $callback): void
+    {
+        $previous = rex::getUser();
+
+        $sql = rex_sql::factory();
+        $sql->setValue('admin', 1);
+        rex::setProperty('user', new rex_user($sql));
+
+        try {
+            $callback();
+        } finally {
+            rex::setProperty('user', $previous);
+        }
+    }
+
+    public function fallbackClangId(): int
+    {
+        return DomainSettings::getFallbackClangId();
+    }
+
+    /** A language that is not the fallback, or null when only one exists. */
+    public function otherClangId(): ?int
+    {
+        foreach (rex_clang::getAllIds() as $id) {
+            if ($id !== $this->fallbackClangId()) {
+                return $id;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Writes one row of test values.
+     *
+     * The domain defaults to the unreachable test domain. Only the legacy-API
+     * suite passes one, because the old getValue() has no domain parameter and
+     * therefore has to be tested against whatever domain the current request
+     * resolves to - which is 0 on the console.
+     *
+     * @param array<string, string> $values
+     */
+    public function setValues(int $clangId, array $values, ?int $domainId = null): void
+    {
+        $dataset = Backend::getDataset($this->table(), [
+            'domain_id' => $domainId ?? self::DOMAIN_ID,
+            'clang_id' => $clangId,
+        ]);
+
+        foreach ($values as $key => $value) {
+            $dataset->setValue($key, $value);
+        }
+
+        $dataset->save();
+        DomainSettings::deleteCache();
+    }
+}
