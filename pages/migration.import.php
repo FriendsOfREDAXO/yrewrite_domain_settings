@@ -131,7 +131,7 @@ if ($showPreview) {
                 . '</tr>';
         }
 
-        $body .= '<table class="table table-striped">'
+        $body .= '<table class="table table-striped domain-settings-import-table">'
             . '<thead><tr>'
             . '<th>' . rex_i18n::msg('domain_settings_import_col_source') . '</th>'
             . '<th>' . rex_i18n::msg('domain_settings_import_col_key') . '</th>'

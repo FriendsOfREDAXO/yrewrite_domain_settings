@@ -397,3 +397,31 @@ body.rex-theme-dark .domain-settings-section-tabs > li.active > a.btn:focus {
 .domain-settings-context .btn-toolbar {
     margin: 0;
 }
+
+/* The import preview: three narrow columns and one that carries prose. Left to
+   itself the browser splits the width evenly, which wraps the headings while
+   the notes column stays half empty. */
+
+.domain-settings-import-table th,
+.domain-settings-import-table td {
+    vertical-align: top;
+}
+
+@media (min-width: 768px) {
+    .domain-settings-import-table th:nth-child(1),
+    .domain-settings-import-table td:nth-child(1) {
+        width: 22%;
+    }
+
+    .domain-settings-import-table th:nth-child(2),
+    .domain-settings-import-table td:nth-child(2) {
+        width: 18%;
+    }
+
+    .domain-settings-import-table th:nth-child(3),
+    .domain-settings-import-table td:nth-child(3) {
+        width: 10%;
+        white-space: nowrap;
+    }
+}
+
