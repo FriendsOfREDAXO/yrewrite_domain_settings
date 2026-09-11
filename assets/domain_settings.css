@@ -141,20 +141,12 @@ body.rex-theme-dark .domain-settings-tabs > li.active > a.btn:focus {
     margin-top: 35px;
 }
 
-.domain-settings-section-head,
 .domain-settings-section-row {
     display: flex;
     flex-wrap: wrap;
     /* Between wrapped lines only: a column gap would be added to the 100%
        columns and push them out of the row. */
     row-gap: 12px;
-}
-
-.domain-settings-section-head {
-    align-items: center;
-    font-weight: 600;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #dfe3e9;
 }
 
 /* Top, not centre: the name field carries the table name below it and is
@@ -167,12 +159,37 @@ body.rex-theme-dark .domain-settings-tabs > li.active > a.btn:focus {
     border-bottom: 1px solid #dfe3e9;
 }
 
-/* Plain text next to form fields: the same offset bootstrap gives
-   .form-control-static, so the line sits level with the text in the field
-   rather than with the field's top edge. */
+/* More air around a row as long as it wraps: below 1400px the buttons sit on
+   a line of their own, so the rule above and below a row is what separates
+   one tab from the next - and that step has to read as bigger than the gaps
+   inside a single row. From 1400px everything is on one line and the row is
+   its own unit again. */
 
-.domain-settings-col-count {
-    padding-top: 7px;
+@media (max-width: 1399px) {
+    .domain-settings-section-row {
+        padding: 40px 0;
+    }
+}
+
+/* The heading row is hidden on a phone, so the gap that keeps it clear of the
+   panel title has nothing left to space out - it would simply stack on the
+   first row's own padding and set that row further in than every other. */
+
+@media (max-width: 767px) {
+    .domain-settings-sections {
+        margin-top: 0;
+    }
+}
+
+/* One heading per column, so a row reads the same whether its columns sit
+   side by side or stacked. Bootstrap's own label weight and spacing, applied
+   to the span above the field count as well - it is a heading like the other
+   two, it just has no form control to point at. */
+
+.domain-settings-col-label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 700;
 }
 
 /* The technical table name is one long word without a break opportunity -
@@ -181,6 +198,19 @@ body.rex-theme-dark .domain-settings-tabs > li.active > a.btn:focus {
 .domain-settings-section-table {
     display: block;
     overflow-wrap: anywhere;
+}
+
+/* The buttons only need their stand-in label while they share a line with
+   the fields; on their own line it would be a blank gap above them. */
+
+.domain-settings-col-actions > .domain-settings-col-label {
+    display: none;
+}
+
+@media (min-width: 1400px) {
+    .domain-settings-col-actions > .domain-settings-col-label {
+        display: block;
+    }
 }
 
 .domain-settings-section-buttons {
@@ -205,12 +235,10 @@ body.rex-theme-dark .domain-settings-tabs > li.active > a.btn:focus {
        short words and the buttons are as wide as their labels - in fixed
        twelfths the one is cramped and the other half empty. */
 
-    .domain-settings-section-head > .domain-settings-col-name,
     .domain-settings-section-row > .domain-settings-col-name {
         width: 30%;
     }
 
-    .domain-settings-section-head > .domain-settings-col-domains,
     .domain-settings-section-row > .domain-settings-col-domains {
         width: 26%;
     }
@@ -219,7 +247,6 @@ body.rex-theme-dark .domain-settings-tabs > li.active > a.btn:focus {
        per row ("0 Felder", "16 Felder"), and a column as wide as its content
        would start the buttons at a different place in every row. */
 
-    .domain-settings-section-head > .domain-settings-col-count,
     .domain-settings-section-row > .domain-settings-col-count {
         width: 10%;
         white-space: nowrap;
@@ -235,13 +262,11 @@ body.rex-theme-dark .domain-settings-tabs > li.active > a.btn:focus {
     }
 }
 
-body.rex-theme-dark .domain-settings-section-head,
 body.rex-theme-dark .domain-settings-section-row {
     border-bottom-color: rgba(21, 28, 34, .5);
 }
 
 @media (prefers-color-scheme: dark) {
-    body:not(.rex-theme-light) .domain-settings-section-head,
     body:not(.rex-theme-light) .domain-settings-section-row {
         border-bottom-color: rgba(21, 28, 34, .5);
     }

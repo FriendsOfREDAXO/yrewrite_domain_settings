@@ -118,9 +118,18 @@ $hasDomains = count($allDomains) > 1;
 // columns stack instead: one per line on a phone, the three fields next to
 // each other from the small breakpoint on with the buttons below them, and
 // everything on one line from the large one.
+//
+// Every column carries its own label rather than a heading row above the
+// list: a heading only lines up while the columns do, so it would have to be
+// hidden exactly where the labels are needed most.
+// On a phone the name gets the full width - it is the one field an editor
+// types in, and the table name below it is long. Domains and the field count
+// share the line under it. The buttons stay on a line of their own even
+// there: "Felder bearbeiten" and "Löschen" together are wider than what is
+// left next to a domain like sub.example.org.
 $colName = 'col-xs-12 col-sm-4 domain-settings-col-name';
-$colDomains = 'col-xs-12 col-sm-4 domain-settings-col-domains';
-$colCount = 'col-xs-12 col-sm-4 domain-settings-col-count';
+$colDomains = 'col-xs-8 col-sm-4 domain-settings-col-domains';
+$colCount = 'col-xs-4 col-sm-4 domain-settings-col-count';
 $colActions = 'col-xs-12 domain-settings-col-actions';
 
 if (!$hasDomains) {
@@ -158,24 +167,37 @@ foreach (Backend::getAllSections() as $table => $label) {
         $select->setSelected($selected);
         $select->addArrayOptions($allDomains);
 
-        // The heading row is gone on a phone, so the field says for itself
-        // what it is - "4 Elemente ausgewählt" alone names nothing.
         $domainCol = '<div class="' . $colDomains . '">'
-            . '<label class="visible-xs-block" for="' . rex_escape($selectId) . '">'
+            . '<label class="domain-settings-col-label" for="' . rex_escape($selectId) . '">'
             . rex_i18n::msg('domain_settings_section_domains') . '</label>'
             . $select->get() . '</div>';
     }
 
+    $labelId = 'domain-settings-label-' . Backend::sectionSlug($table);
+
     $rows .= '<div class="row domain-settings-section-row">'
         . '<div class="' . $colName . '">'
-        . '<input class="form-control" type="text" name="section_labels[' . rex_escape($table) . ']"'
-        . ' value="' . rex_escape($label) . '" required'
-        . ' aria-label="' . rex_escape(rex_i18n::msg('domain_settings_section_label')) . '">'
+        . '<label class="domain-settings-col-label" for="' . rex_escape($labelId) . '">'
+        . rex_i18n::msg('domain_settings_section_label') . '</label>'
+        . '<input class="form-control" type="text" id="' . rex_escape($labelId) . '"'
+        . ' name="section_labels[' . rex_escape($table) . ']"'
+        . ' value="' . rex_escape($label) . '" required>'
         . '<small class="text-muted domain-settings-section-table">' . rex_escape($table) . '</small>'
         . '</div>'
         . $domainCol
-        . '<div class="' . $colCount . '">' . rex_i18n::msg('domain_settings_field_count', $count) . '</div>'
+        . '<div class="' . $colCount . '">'
+        // A span, not a label: there is no form control underneath for it to
+        // belong to, and an empty for="" would only confuse a screen reader.
+        . '<span class="domain-settings-col-label">' . rex_i18n::msg('domain_settings_section_fields') . '</span>'
+        . $count
+        . '</div>'
         . '<div class="' . $colActions . '">'
+        // Keeps the buttons level with the fields where they share the line:
+        // every other column starts below a label, so without a stand-in of
+        // the same height these would sit a label higher. Empty and hidden
+        // from screen readers - it carries no meaning, only height - and CSS
+        // drops it as soon as the buttons wrap onto their own line.
+        . '<span class="domain-settings-col-label" aria-hidden="true">&nbsp;</span>'
         . '<div class="domain-settings-section-buttons">'
         . '<a class="btn btn-default" href="' . Backend::getFieldsUrl($table) . '">'
         . '<i class="rex-icon fa-list"></i> ' . rex_i18n::msg('domain_settings_edit_fields') . '</a>'
@@ -192,13 +214,6 @@ foreach (Backend::getAllSections() as $table => $label) {
         . '</div>'
         . '</div>';
 }
-
-// Column headings, from the breakpoint on where there are columns to head.
-$head = '<div class="row domain-settings-section-head hidden-xs">'
-    . '<div class="' . $colName . '">' . rex_i18n::msg('domain_settings_section_label') . '</div>'
-    . ($hasDomains ? '<div class="' . $colDomains . '">' . rex_i18n::msg('domain_settings_section_domains') . '</div>' : '')
-    . '<div class="' . $colCount . '"></div>'
-    . '</div>';
 
 $hidden = '<input type="hidden" name="page" value="' . rex_escape(rex_be_controller::getCurrentPage()) . '">';
 
@@ -257,7 +272,6 @@ $body = '<form class="domain-settings-sections" action="' . rex_url::currentBack
     . $hidden
     . '<input type="hidden" name="func" value="rename">'
     . $csrf->getHiddenField()
-    . $head
     . $rows
     . '<button class="btn btn-save" type="submit">' . rex_i18n::msg('domain_settings_sections_save') . '</button>'
     . '</form>';
