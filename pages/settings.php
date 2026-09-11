@@ -112,11 +112,27 @@ if ('' !== $func) {
 $allDomains = Backend::getDomains();
 $hasDomains = count($allDomains) > 1;
 
+// A grid rather than a table: a table row cannot be reflowed, and this list
+// carries a text field, a multi select and two buttons - side by side they
+// need more room than the panel has until the window is very wide. The
+// columns stack instead: one per line on a phone, the three fields next to
+// each other from the small breakpoint on with the buttons below them, and
+// everything on one line from the large one.
+$colName = 'col-xs-12 col-sm-4 domain-settings-col-name';
+$colDomains = 'col-xs-12 col-sm-4 domain-settings-col-domains';
+$colCount = 'col-xs-12 col-sm-4 domain-settings-col-count';
+$colActions = 'col-xs-12 domain-settings-col-actions';
+
+if (!$hasDomains) {
+    $colName = 'col-xs-12 col-sm-8 domain-settings-col-name';
+    $colCount = 'col-xs-12 col-sm-4 domain-settings-col-count';
+}
+
 $rows = '';
 foreach (Backend::getAllSections() as $table => $label) {
     $count = count(rex_yform_manager_table::get($table)?->getValueFields() ?? []);
 
-    $domainCell = '';
+    $domainCol = '';
     if ($hasDomains) {
         // No selection at all is stored as "every domain", so every domain is
         // ticked when nothing is configured. The editor then unticks what a
@@ -124,9 +140,11 @@ foreach (Backend::getAllSections() as $table => $label) {
         $selected = Backend::getSectionDomainIds($table);
         $selected = [] === $selected ? array_keys($allDomains) : $selected;
 
+        $selectId = 'domain-settings-domains-' . Backend::sectionSlug($table);
+
         $select = new rex_select();
         $select->setName('section_domains[' . rex_escape($table) . '][]');
-        $select->setId('domain-settings-domains-' . rex_escape(Backend::sectionSlug($table)));
+        $select->setId($selectId);
         // selectpicker turns it into the dropdown with a tick per entry that
         // YForm uses; bootstrap-select ships with the backend, so nothing has
         // to be loaded here. Without JavaScript it stays a plain multiple
@@ -140,18 +158,27 @@ foreach (Backend::getAllSections() as $table => $label) {
         $select->setSelected($selected);
         $select->addArrayOptions($allDomains);
 
-        $domainCell = '<td class="domain-settings-section-domains">' . $select->get() . '</td>';
+        // The heading row is gone on a phone, so the field says for itself
+        // what it is - "4 Elemente ausgewählt" alone names nothing.
+        $domainCol = '<div class="' . $colDomains . '">'
+            . '<label class="visible-xs-block" for="' . rex_escape($selectId) . '">'
+            . rex_i18n::msg('domain_settings_section_domains') . '</label>'
+            . $select->get() . '</div>';
     }
 
-    $rows .= '<tr>'
-        . '<td><input class="form-control" type="text" name="section_labels[' . rex_escape($table) . ']"'
-        . ' value="' . rex_escape($label) . '" required>'
-        . '<small class="text-muted">' . rex_escape($table) . '</small></td>'
-        . $domainCell
-        . '<td>' . rex_i18n::msg('domain_settings_field_count', $count) . '</td>'
-        . '<td class="rex-table-action"><a class="btn btn-default" href="' . Backend::getFieldsUrl($table) . '">'
-        . '<i class="rex-icon fa-list"></i> ' . rex_i18n::msg('domain_settings_edit_fields') . '</a></td>'
-        . '<td class="rex-table-action">'
+    $rows .= '<div class="row domain-settings-section-row">'
+        . '<div class="' . $colName . '">'
+        . '<input class="form-control" type="text" name="section_labels[' . rex_escape($table) . ']"'
+        . ' value="' . rex_escape($label) . '" required'
+        . ' aria-label="' . rex_escape(rex_i18n::msg('domain_settings_section_label')) . '">'
+        . '<small class="text-muted domain-settings-section-table">' . rex_escape($table) . '</small>'
+        . '</div>'
+        . $domainCol
+        . '<div class="' . $colCount . '">' . rex_i18n::msg('domain_settings_field_count', $count) . '</div>'
+        . '<div class="' . $colActions . '">'
+        . '<div class="domain-settings-section-buttons">'
+        . '<a class="btn btn-default" href="' . Backend::getFieldsUrl($table) . '">'
+        . '<i class="rex-icon fa-list"></i> ' . rex_i18n::msg('domain_settings_edit_fields') . '</a>'
         . (Backend::isSectionDeletable($table)
             ? '<button class="btn btn-delete" type="submit" name="delete_section"'
                 . ' value="' . rex_escape($table) . '"'
@@ -161,9 +188,17 @@ foreach (Backend::getAllSections() as $table => $label) {
                 . ' data-confirm="' . rex_escape(rex_i18n::rawMsg('domain_settings_section_delete_confirm', $label)) . '">'
                 . '<i class="rex-icon rex-icon-delete"></i> ' . rex_i18n::msg('domain_settings_section_delete') . '</button>'
             : '')
-        . '</td>'
-        . '</tr>';
+        . '</div>'
+        . '</div>'
+        . '</div>';
 }
+
+// Column headings, from the breakpoint on where there are columns to head.
+$head = '<div class="row domain-settings-section-head hidden-xs">'
+    . '<div class="' . $colName . '">' . rex_i18n::msg('domain_settings_section_label') . '</div>'
+    . ($hasDomains ? '<div class="' . $colDomains . '">' . rex_i18n::msg('domain_settings_section_domains') . '</div>' : '')
+    . '<div class="' . $colCount . '"></div>'
+    . '</div>';
 
 $hidden = '<input type="hidden" name="page" value="' . rex_escape(rex_be_controller::getCurrentPage()) . '">';
 
@@ -216,21 +251,14 @@ $fragment->setVar('title', rex_i18n::msg('domain_settings_section_add_title'), f
 $fragment->setVar('body', $body, false);
 echo $fragment->parse('core/page/section.php');
 
-// One form around the whole table: a <form> inside <tr> is invalid markup and
-// browsers drop it, so per-row forms would simply not submit.
+// One form around the whole list: the delete buttons submit it too, and a
+// form per row would nest forms - browsers drop those.
 $body = '<form class="domain-settings-sections" action="' . rex_url::currentBackendPage() . '" method="post">'
     . $hidden
     . '<input type="hidden" name="func" value="rename">'
     . $csrf->getHiddenField()
-    . '<table class="table table-hover">'
-    . ($hasDomains
-        ? '<thead><tr>'
-            . '<th>' . rex_i18n::msg('domain_settings_section_label') . '</th>'
-            . '<th>' . rex_i18n::msg('domain_settings_section_domains') . '</th>'
-            . '<th colspan="3"></th>'
-            . '</tr></thead>'
-        : '')
-    . '<tbody>' . $rows . '</tbody></table>'
+    . $head
+    . $rows
     . '<button class="btn btn-save" type="submit">' . rex_i18n::msg('domain_settings_sections_save') . '</button>'
     . '</form>';
 

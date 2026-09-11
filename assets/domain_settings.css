@@ -126,17 +126,127 @@ body.rex-theme-dark .domain-settings-tabs > li.active > a.btn:focus {
 
 /* Section list on the settings page.
 
-   The list follows the create form, so it needs room to read as a separate
-   step. And the table's top border would sit directly under legend's own
-   rule - two lines a few pixels apart - so it goes. */
+   A grid, not a table (see pages/settings.php): a row of a text field, a
+   multi select and two buttons needs more width than the panel has until the
+   window is very wide, and a table row cannot reflow - it is simply cut off.
+
+   Below the small breakpoint every column takes a line of its own, from there
+   the three fields sit side by side with the buttons on the line below, and
+   from the large breakpoint on the row is one line.
+
+   The list follows the create panel, so it needs room to read as a step of
+   its own. */
 
 .domain-settings-sections {
     margin-top: 35px;
 }
 
-.domain-settings-sections table > tbody > tr:first-child > td {
-    border-top: 0;
+.domain-settings-section-head,
+.domain-settings-section-row {
+    display: flex;
+    flex-wrap: wrap;
+    /* Between wrapped lines only: a column gap would be added to the 100%
+       columns and push them out of the row. */
+    row-gap: 12px;
 }
+
+.domain-settings-section-head {
+    align-items: center;
+    font-weight: 600;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #dfe3e9;
+}
+
+/* Top, not centre: the name field carries the table name below it and is
+   taller than the rest, and centring the row would push the select and the
+   count half a line below the field they belong next to. */
+
+.domain-settings-section-row {
+    align-items: flex-start;
+    padding: 20px 0;
+    border-bottom: 1px solid #dfe3e9;
+}
+
+/* Plain text next to form fields: the same offset bootstrap gives
+   .form-control-static, so the line sits level with the text in the field
+   rather than with the field's top edge. */
+
+.domain-settings-col-count {
+    padding-top: 7px;
+}
+
+/* The technical table name is one long word without a break opportunity -
+   left alone it keeps its column from ever getting narrow. */
+
+.domain-settings-section-table {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+.domain-settings-section-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* The save button follows the last row directly, where the table's cell
+   padding used to keep it clear of the line above. */
+
+.domain-settings-sections > .btn {
+    margin-top: 20px;
+}
+
+/* One line per row - from 1400px, not from bootstrap's large breakpoint: at
+   1200 the backend navigation takes 250 of them and both buttons no longer
+   fit beside the three fields, so the promise of one line would not hold. */
+
+@media (min-width: 1400px) {
+    /* Widths of their own instead of grid classes: the field count is two
+       short words and the buttons are as wide as their labels - in fixed
+       twelfths the one is cramped and the other half empty. */
+
+    .domain-settings-section-head > .domain-settings-col-name,
+    .domain-settings-section-row > .domain-settings-col-name {
+        width: 30%;
+    }
+
+    .domain-settings-section-head > .domain-settings-col-domains,
+    .domain-settings-section-row > .domain-settings-col-domains {
+        width: 26%;
+    }
+
+    /* A share of the line rather than its own width: the count is what it is
+       per row ("0 Felder", "16 Felder"), and a column as wide as its content
+       would start the buttons at a different place in every row. */
+
+    .domain-settings-section-head > .domain-settings-col-count,
+    .domain-settings-section-row > .domain-settings-col-count {
+        width: 10%;
+        white-space: nowrap;
+    }
+
+    /* The rest of the line, with the buttons at its left edge: they line up
+       across rows, and a row without a delete button leaves its gap at the
+       far right rather than shifting the other button around. */
+
+    .domain-settings-section-row > .domain-settings-col-actions {
+        flex: 1 1 auto;
+        width: auto;
+    }
+}
+
+body.rex-theme-dark .domain-settings-section-head,
+body.rex-theme-dark .domain-settings-section-row {
+    border-bottom-color: rgba(21, 28, 34, .5);
+}
+
+@media (prefers-color-scheme: dark) {
+    body:not(.rex-theme-light) .domain-settings-section-head,
+    body:not(.rex-theme-light) .domain-settings-section-row {
+        border-bottom-color: rgba(21, 28, 34, .5);
+    }
+}
+
 
 /* Sits next to the save button rather than below it - YForm renders the html
    field right after the submit, so only the spacing has to be added. */

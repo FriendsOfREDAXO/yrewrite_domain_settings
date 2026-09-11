@@ -56,6 +56,12 @@ Tokens laufen unverändert weiter.
 - Beim Zusammenführen mehrerer Tabs schlägt ein gefüllter Wert einen leeren
   aus einem anderen Tab. Vorher gewann der zuerst gelesene Tab, und eine
   einmal geöffnete, leere Zeile konnte echten Inhalt verdecken.
+- Die Tab-Liste in den Einstellungen ist ein Raster statt einer Tabelle und
+  bricht mit dem Fenster um: auf dem Telefon steht jede Spalte auf einer
+  eigenen Zeile, ab 768 Pixeln stehen Name, Domains und Feldzahl nebeneinander
+  mit den beiden Knöpfen darunter, ab 1400 Pixeln alles auf einer Zeile.
+  Vorher lief die Tabellenzeile aus dem Panel heraus und der Löschen-Knopf war
+  ab etwa 1000 Pixeln Fensterbreite abgeschnitten.
 
 ### Geändert
 
