@@ -130,6 +130,25 @@ Ohne Berechtigung für mindestens eine Domain und einen Tab bleibt die Seite
 gesperrt. **Einstellungen**, **Migration** und **Hilfe** sind Administratoren
 vorbehalten.
 
+## Schutz
+
+Drei Stellen, an denen das AddOn eingreift, damit ein Klick im Backend keinen
+Schaden anrichtet:
+
+- **Felder löschen im Table Manager.** YForms „Tabelle aktualisieren und
+  Spalten löschen" würde auf diesen Tabellen `domain_id` und `clang_id`
+  entfernen — genau die Spalten, die bestimmen, welche Zeile geschrieben wird.
+  Der Aufruf wird auf diesen Tabellen abgefangen.
+- **Dieselben Spalten als Formularfeld.** YForm bietet an, jede Spalte ohne
+  Feld in eines zu verwandeln. Ein Formular, das `domain_id` oder `clang_id`
+  mitschickt, könnte in eine fremde Domain schreiben; das Angebot wird auf
+  diesen Tabellen deshalb entfernt.
+- **Medienpool.** Ein Bild, das in den Werten verwendet wird, meldet sich über
+  `MEDIA_IS_IN_USE` als belegt und lässt sich nicht mehr löschen.
+
+Die Ausgabe ist davon getrennt: `REX_DOMAIN_VALUE` escapt standardmäßig,
+`REX_DOMAIN_SETTING` gibt aus Kompatibilitätsgründen weiter roh aus.
+
 ## REST-API (optional)
 
 Mit installiertem [api-Addon](https://github.com/FriendsOfREDAXO/api) stehen die
