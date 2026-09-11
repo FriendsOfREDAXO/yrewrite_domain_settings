@@ -352,6 +352,8 @@ final class Backend
         self::$sections = null;
         self::$domains = null;
         self::$domainClangIds = [];
+        self::$activeDomainId = null;
+        self::$activeClangIds = [];
     }
 
     /**

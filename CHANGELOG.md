@@ -65,6 +65,26 @@ Tokens laufen unverändert weiter.
 
 ### Geändert
 
+- Die Tab-Liste in den Einstellungen trägt **je Spalte eine Beschriftung**
+  statt einer Kopfzeile über der Liste. Eine Kopfzeile fluchtet nur, solange
+  die Spalten es tun, und musste deshalb auf dem Telefon verschwinden — dort,
+  wo die Beschriftung am nötigsten ist.
+- Der **IDE-Helper** wird auch beim Bearbeiten der Felder eines Tabs
+  geschrieben, nicht mehr nur beim Leeren des Caches. Ein neu angelegtes Feld
+  steht damit sofort in der Autovervollständigung. Wie bisher nur im
+  Debug-Modus.
+- Werte kommen über **einen** Lesepfad statt über zwei: `valuesFor()` las mit
+  eigenem SQL, was `rowsByClang()` schon konnte. `getAll()` liest die
+  Fallback-Sprache jetzt in derselben Abfrage mit und halbiert damit seine
+  Queries.
+- `Backend::resetCaches()` verwirft auch die aufgelöste Domain und Sprache.
+  Sein Doc-Block sagt „alles, was diese Klasse für einen Request hält" — zwei
+  Eigenschaften blieben bisher stehen.
+- Die **Hilfeseite** ist von 2586 auf 736 Wörter gekürzt. Begründungen, warum
+  etwas so gebaut ist, stehen im Changelog, nicht in der Hilfe.
+- Entfernt, weil nichts sie erreicht: `Backend::getInheritedKeys()`, die
+  lokale Variable `$clangIds` auf der Datenseite und die Sprachschlüssel
+  `domain_settings_section_domains_notice` und `…_section_label_notice`.
 - **Der Wert-Cache ist weg.** Werte kommen aus den Tabellen, wie YForm alles
   andere auch liest; gehalten werden sie nur innerhalb eines Requests, damit
   zwanzig `REX_DOMAIN_VALUE` in einem Template eine Abfrage bleiben. Damit
@@ -104,7 +124,7 @@ Tokens laufen unverändert weiter.
   Liste der betroffenen Felder, und steht auf jedem Tab jeder Sprache außer
   der Fallback-Sprache. Ein Hinweis, der kommt und geht, ist einer, auf den
   sich niemand verlässt.
-- `console domain-settings:test` — 58 Prüfungen in sieben Suiten.
+- `console domain-settings:test` — 70 Prüfungen in acht Suiten.
 
 ### Kompatibilität
 
