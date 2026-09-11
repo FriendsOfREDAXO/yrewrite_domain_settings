@@ -10,3 +10,7 @@
 # Local tool output
 /.php-cs-fixer.cache
 /.playwright-mcp/
+
+# Generated per installation by domain-settings:ide-helper - it lists the field
+# names of whatever instance last cleared its cache, so it does not belong here.
+/.phpstorm.meta.php
