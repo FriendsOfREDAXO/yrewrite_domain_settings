@@ -193,6 +193,16 @@ if (rex::isBackend()) {
             return null;
         }
 
+        // Someone is editing the fields of one of our tabs, so this is the
+        // moment the field list can have changed. YForm fires no extension
+        // point for that, and CACHE_DELETED only comes around when someone
+        // clears the cache by hand - which is one step too many right after
+        // adding a field. Only while developing, like the CACHE_DELETED
+        // handler above: nobody reads the file on a production server.
+        if (rex::isDebugMode()) {
+            Backend::writeIdeHelper();
+        }
+
         $subject = $ep->getSubject();
 
         if (!is_string($subject)) {
