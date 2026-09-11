@@ -45,6 +45,10 @@ installer_ignore:
     - .git
     - .github
     - .gitignore
+    # Generated from the field names of whatever installation ran
+    # domain-settings:ide-helper, so shipping it would hand out foreign
+    # completions.
+    - .phpstorm.meta.php
     - .php-cs-fixer.dist.php
     - .php-cs-fixer.cache
     - composer.json

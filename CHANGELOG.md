@@ -3,6 +3,31 @@
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [Unveröffentlicht]
+
+### Hinzugefügt
+
+- **Import aus `global_settings`** auf der Seite Migration, sichtbar nur bei
+  installiertem AddOn. Erst eine Vorschau (Feld, Zieltyp, was Handarbeit
+  braucht), dann der schreibende Schritt — der Import ersetzt den Ziel-Tab.
+  Automatisch übernommen werden einfache Felder, Medien- und Linklisten,
+  Datum und Uhrzeit (Unix-Zeitstempel → SQL, `0` bleibt leer), die boolesche
+  Checkbox (`|true|` → `1`), Mehrfachwerte (`|a|b|` → `a,b`) und
+  Auswahllisten in Pipe-Form.
+
+  Die Richtung der Auswahlliste ist dabei der Punkt, der stimmen muss:
+  `global_settings` schreibt `wert:Label`, YForms `choice` erwartet
+  `{"Label": "wert"}`. Vertauscht sähe im Backend alles richtig aus, während
+  kein gespeicherter Wert mehr passt.
+
+  Gemeldet statt geraten: Auswahllisten aus SQL-Abfragen, Farbwähler und
+  selbst angelegte Feldtypen. **Callbacks werden nicht importiert** — ihr Code
+  steht vollständig in der Vorschau.
+
+  Datumsfelder bekommen einen Jahresbereich mit: YForm beginnt sonst bei
+  „aktuelles Jahr minus 20", und ein älteres importiertes Datum wäre im
+  Formular nicht wählbar.
+
 ## [2.5.0] — 2026-09-11
 
 Die Oberfläche ist umgebaut: Domain, Tab und Sprache stehen jetzt gemeinsam auf
@@ -36,12 +61,17 @@ Tokens laufen unverändert weiter.
   Sprachumschaltung rechts. Die Sprachumschaltung baut auf den Core-Fragmenten
   auf (`core/buttons/button_group.php`, ab vier Sprachen
   `core/dropdowns/dropdown.php`) und trägt `btn-clang` wie die Struktur-Seite.
-- **Schutz vor YForm** auf den Tabellen dieses Addons: ein `OUTPUT_FILTER`
-  blendet YForms Angebot aus, `domain_id` und `clang_id` in Felder zu
-  verwandeln, und den Knopf „Tabelle aktualisieren mit Feldlöschung". Der
-  löscht (yform, `lib/manager/table/api.php`, `generateTableAndFields()` mit
-  `$delete_old`) jede Spalte ohne Feld außer `id` — hier also genau die beiden
-  Spalten, die bestimmen, welche Zeile geschrieben wird.
+- **Schutz vor YForm** auf den Tabellen dieses Addons: „Tabelle aktualisieren
+  mit Feldlöschung" wird abgelehnt, bevor YForm die Aktion ausführt
+  (`PAGE_CHECKED`), und der Versuch auf der Feldseite mit einem Hinweis
+  quittiert. Der Knopf löscht (yform, `lib/manager/table/api.php`,
+  `generateTableAndFields()` mit `$delete_old`) jede Spalte ohne Feld außer
+  `id` — hier also genau die beiden Spalten, die bestimmen, welche Zeile
+  gelesen und geschrieben wird. Zusätzlich nimmt ein `OUTPUT_FILTER` den Knopf
+  und YForms Angebot, `domain_id` und `clang_id` in Felder zu verwandeln, von
+  der Seite. Der Filter allein genügte nicht: YForm führt die Aktion schon
+  beim Seitenaufbau aus, hinter nichts als einem CSRF-Token, das auf derselben
+  Seite ohnehin an jedem anderen Link hängt.
 - Neue Test-Suite `section-domains` (`lib/Tests/SectionDomainsSuite.php`) mit
   19 Prüfungen — darunter, dass ein nicht zugeordneter Tab im Frontend
   schweigt, dass seine Werte beim Wiederzuordnen zurückkommen, dass das
@@ -50,6 +80,12 @@ Tokens laufen unverändert weiter.
 
 ### Behoben
 
+- Der Domainname in der Meldung „kein Tab für diese Domain" wird escapt.
+  `rex_i18n::rawMsg()` tut das nicht selbst, und der Name ist freier Text aus
+  yrewrite.
+- `.phpstorm.meta.php` wird nicht mehr mit ausgeliefert. Die Datei entsteht aus
+  den Feldnamen der Installation, auf der `domain-settings:ide-helper` lief,
+  und hätte sonst fremde Vorschläge mitgebracht, bis sie neu erzeugt wird.
 - Der Duplikat-Check für Feldnamen fragt erst, ob sich zwei Tabs überhaupt
   eine Domain teilen. Tabs auf verschiedenen Domains antworten nie für
   dieselbe Domain und dürfen denselben Feldnamen führen.

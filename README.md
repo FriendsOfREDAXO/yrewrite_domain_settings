@@ -66,6 +66,23 @@ Domain. Vorhandene Werte im Ziel werden überschrieben, deshalb mit Rückfrage.
 Quelle und Ziel müssen Domain und Sprache sein, die der Benutzer ohnehin
 bearbeiten darf.
 
+## Globale Einstellungen importieren
+
+Steht auf der Seite **Migration**, sobald das AddOn `global_settings`
+installiert ist. Überträgt dessen Felder und Werte in einen Tab dieses AddOns;
+Sprachen werden eins zu eins übernommen, der `glob_`-Präfix entfällt aus den
+Feldnamen.
+
+Zuerst erscheint eine **Vorschau**: je Feld, was daraus wird und was Handarbeit
+braucht. Erst der zweite Knopf schreibt. Das ist nötig, weil der Import den
+Ziel-Tab ersetzt — vorhandene Felder und Werte darin werden gelöscht.
+
+Nicht automatisch übernommen werden Auswahllisten aus SQL-Abfragen (YForm
+erwartet Spalten `value` und `label`), Farbwähler (der Wert bleibt, das
+Bedienelement hat kein Gegenstück) und selbst angelegte Feldtypen. **Callbacks
+werden nicht importiert**; ihr Code steht vollständig in der Vorschau, damit er
+nicht verloren geht.
+
 ## Verwendung im Frontend
 
 ```php

@@ -1350,6 +1350,15 @@ final class Backend
             $ids = [];
         }
 
+        // An empty list lifts the limit - but a list that only became empty
+        // through the permission filter must not. Otherwise a caller who may
+        // see none of the domains it named would widen the section to all of
+        // them. Today every caller is admin-only, so this is the guard for the
+        // next one.
+        if ([] !== $domainIds && [] === $ids) {
+            return;
+        }
+
         $config = self::getSectionDomains();
 
         if ([] === $ids) {
@@ -1391,6 +1400,13 @@ final class Backend
     /** Whether a section is meant to be edited on the given domain. */
     public static function isSectionVisibleForDomain(string $table, int $domainId): bool
     {
+        // A table that is not a section of ours is nowhere visible. Without
+        // this it would read as "assigned to every domain", because an unknown
+        // table has no assignment either.
+        if (!array_key_exists($table, self::getAllSections())) {
+            return false;
+        }
+
         $ids = self::getSectionDomainIds($table);
 
         return [] === $ids || in_array($domainId, $ids, true);

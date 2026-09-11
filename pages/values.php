@@ -57,7 +57,12 @@ $clangId = Backend::getActiveClangId($domainId);
 $available = Backend::getSections($domainId);
 
 if ([] === $available) {
-    echo rex_view::warning(rex_i18n::rawMsg('domain_settings_no_section_for_domain', $domains[$domainId] ?? ''));
+    // rawMsg() does not escape its arguments, and the domain name is free
+    // text from yrewrite - same reason settings.php escapes it by hand.
+    echo rex_view::warning(rex_i18n::rawMsg(
+        'domain_settings_no_section_for_domain',
+        rex_escape((string) ($domains[$domainId] ?? '')),
+    ));
     return;
 }
 

@@ -10,6 +10,7 @@
  */
 
 use FriendsOfRedaxo\DomainSettings\Backend;
+use FriendsOfRedaxo\DomainSettings\Import\Source;
 
 $csrf = rex_csrf_token::factory('domain_settings_section');
 
@@ -129,4 +130,11 @@ if (count($domains) < 2 && count($clangs) < 2) {
     $fragment->setVar('title', rex_i18n::msg('domain_settings_copy_title'), false);
     $fragment->setVar('body', $body, false);
     echo $fragment->parse('core/page/section.php');
+}
+
+// ------------------------------------------ import from the global_settings addon
+// Only where there is something to import from: without the addon the section
+// would be a button leading into a missing table.
+if (Source::isAvailable()) {
+    require __DIR__ . '/migration.import.php';
 }

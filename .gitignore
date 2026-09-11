@@ -1,3 +1,12 @@
 # General
 .DS_Store
 .idea
+
+# Composer pulls dev tooling only - the addon ships without either, and
+# installer_ignore keeps them out of the package as well.
+/vendor/
+/composer.lock
+
+# Local tool output
+/.php-cs-fixer.cache
+/.playwright-mcp/
