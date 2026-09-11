@@ -151,6 +151,13 @@ Schaden anrichtet:
 Die Ausgabe ist davon getrennt: `REX_DOMAIN_VALUE` escapt standardmäßig,
 `REX_DOMAIN_SETTING` gibt aus Kompatibilitätsgründen weiter roh aus.
 
+## Deinstallieren
+
+Beim Deinstallieren werden die Wertetabellen und ihre YForm-Registrierung
+entfernt — die gepflegten Werte sind damit weg. Eine Tabelle wird nur
+angefasst, wenn sie `domain_id` und `clang_id` trägt, eine Projekttabelle mit
+gleichem Präfix bleibt also stehen. Was gelöscht wurde, steht im `system.log`.
+
 ## REST-API (optional)
 
 Mit installiertem [api-Addon](https://github.com/FriendsOfREDAXO/api) stehen die

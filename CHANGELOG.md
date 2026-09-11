@@ -3,6 +3,16 @@
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [Unveröffentlicht]
+
+### Hinzugefügt
+
+- `uninstall.php` — beim Deinstallieren werden die Wertetabellen und ihre
+  YForm-Registrierung entfernt, wie es yrewrite und structure mit ihren
+  Tabellen auch halten. Eine Tabelle wird nur angefasst, wenn sie `domain_id`
+  und `clang_id` trägt; eine Projekttabelle mit gleichem Präfix bleibt stehen.
+  Was gelöscht wurde, steht danach im `system.log`.
+
 ## [2.5.0-beta1] — 2026-09-11
 
 Testversion des kommenden 2.5.0: alles aus 2.5.0 (unten) und zusätzlich
