@@ -3,6 +3,31 @@
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
+## [Unveröffentlicht]
+
+### Hinzugefügt
+
+- **Import aus `global_settings`** auf der Seite Migration, sichtbar nur bei
+  installiertem AddOn. Erst eine Vorschau (Feld, Zieltyp, was Handarbeit
+  braucht), dann der schreibende Schritt — der Import ersetzt den Ziel-Tab.
+  Automatisch übernommen werden einfache Felder, Medien- und Linklisten,
+  Datum und Uhrzeit (Unix-Zeitstempel → SQL, `0` bleibt leer), die boolesche
+  Checkbox (`|true|` → `1`), Mehrfachwerte (`|a|b|` → `a,b`) und
+  Auswahllisten in Pipe-Form.
+
+  Die Richtung der Auswahlliste ist dabei der Punkt, der stimmen muss:
+  `global_settings` schreibt `wert:Label`, YForms `choice` erwartet
+  `{"Label": "wert"}`. Vertauscht sähe im Backend alles richtig aus, während
+  kein gespeicherter Wert mehr passt.
+
+  Gemeldet statt geraten: Auswahllisten aus SQL-Abfragen, Farbwähler und
+  selbst angelegte Feldtypen. **Callbacks werden nicht importiert** — ihr Code
+  steht vollständig in der Vorschau.
+
+  Datumsfelder bekommen einen Jahresbereich mit: YForm beginnt sonst bei
+  „aktuelles Jahr minus 20", und ein älteres importiertes Datum wäre im
+  Formular nicht wählbar.
+
 ## [2.5.0] — 2026-09-11
 
 Die Oberfläche ist umgebaut: Domain, Tab und Sprache stehen jetzt gemeinsam auf

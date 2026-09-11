@@ -97,10 +97,20 @@ class Mapper
         $extra = [];
         $notes = [];
 
-        // A default only survives where the target stores the same thing a
+        // A default only survives where the target stores the same thing - a
         // date field would read a timestamp it cannot parse.
         if ('' !== $field->default && in_array($type, ['text', 'textarea'], true)) {
             $extra['default'] = $field->default;
+        }
+
+        // Without a range of its own, YForm's date field starts at the current
+        // year minus 20 (Field/value/date.php:85). An imported date older than
+        // that is not selectable, and saving the form would overwrite it with
+        // whatever the dropdown happens to show. A founding year is exactly
+        // the kind of date that falls outside.
+        if (in_array($type, ['date', 'datetime'], true)) {
+            $extra['year_start'] = '-100';
+            $extra['year_end'] = '+10';
         }
 
         return new MappedField($field, MappedField::STATUS_AUTOMATIC, $type, $this->definition($field, $type, $extra), $notes);
