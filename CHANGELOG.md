@@ -3,7 +3,10 @@
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
-## [Unveröffentlicht]
+## [2.5.0-beta1] — 2026-09-11
+
+Testversion des kommenden 2.5.0: alles aus 2.5.0 (unten) und zusätzlich
+der Import aus `global_settings`.
 
 ### Hinzugefügt
 
@@ -28,7 +31,7 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   „aktuelles Jahr minus 20", und ein älteres importiertes Datum wäre im
   Formular nicht wählbar.
 
-## [2.5.0] — 2026-09-11
+## [2.5.0] — noch nicht veröffentlicht, ausgeliefert als 2.5.0-beta1
 
 Die Oberfläche ist umgebaut: Domain, Tab und Sprache stehen jetzt gemeinsam auf
 **einer** Seite statt verteilt über die Backend-Navigation. Datenstruktur, API
