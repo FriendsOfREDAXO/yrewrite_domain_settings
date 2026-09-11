@@ -28,6 +28,8 @@ Domain-Rechte. Was das Update im Einzelnen tut, steht im
 Die Seite, auf der Werte gepflegt werden. Oben wird die Domain gewählt, rechts
 daneben die Sprache, darunter liegen die Tabs.
 
+![Die Seite „Daten“: Domainauswahl, Sprachumschalter und die Felder eines Tabs](https://raw.githubusercontent.com/FriendsOfREDAXO/yrewrite_domain_settings/assets/data.png)
+
 Domain- und Sprachauswahl erscheinen nur, wenn es etwas zu wählen gibt. Bei
 einer Domain und einer Sprache zeigt die Seite direkt das Formular.
 
@@ -40,6 +42,8 @@ Ein **Tab** ist eine eigene YForm-Tabelle mit eigenen Feldern. Mehrere Tabs
 trennen thematisch, was sonst in einem langen Formular stünde, und lassen sich
 einzeln berechtigen: Wer eine Tabelle nicht bearbeiten darf, sieht den Tab
 nicht.
+
+![Die Seite „Einstellungen“: Tabs mit ihrer Domain-Zuordnung und das Fallback-Panel](https://raw.githubusercontent.com/FriendsOfREDAXO/yrewrite_domain_settings/assets/settings.png)
 
 Jeder Tab kann **einer oder mehreren Domains zugeordnet** werden. Die Zuordnung
 bestimmt, wo der Tab gilt: Dort wird er zur Bearbeitung angeboten, und nur dort
