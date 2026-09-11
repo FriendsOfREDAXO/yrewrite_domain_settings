@@ -74,6 +74,8 @@ Domain. Vorhandene Werte im Ziel werden überschrieben, deshalb mit Rückfrage.
 Quelle und Ziel müssen Domain und Sprache sein, die der Benutzer ohnehin
 bearbeiten darf.
 
+![Die Seite „Migration“: Werte von Domain zu Domain übertragen und der Import aus global_settings](https://raw.githubusercontent.com/FriendsOfREDAXO/yrewrite_domain_settings/assets/migration.png)
+
 ## Globale Einstellungen importieren
 
 Steht auf der Seite **Migration**, sobald das AddOn `global_settings`
