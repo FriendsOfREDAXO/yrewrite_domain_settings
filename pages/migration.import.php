@@ -148,8 +148,11 @@ if ($showPreview) {
         if ([] !== $callbacks) {
             $list = '';
             foreach ($callbacks as $field) {
+                // No text-muted inside the alert: grey on the warning colour
+                // measures 2.48:1 in the dark theme. The <small> is enough of
+                // a distinction, and it keeps the alert's own text colour.
                 $list .= '<p><strong>' . rex_escape($field->title)
-                    . '</strong> <small class="text-muted">' . rex_escape($field->name) . '</small></p>'
+                    . '</strong> <small>' . rex_escape($field->name) . '</small></p>'
                     . '<pre class="pre-scrollable">' . rex_escape($field->callback) . '</pre>';
             }
 
