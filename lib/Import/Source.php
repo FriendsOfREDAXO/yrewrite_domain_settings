@@ -6,7 +6,6 @@ use rex;
 use rex_addon;
 use rex_sql;
 
-use function is_array;
 use function is_scalar;
 
 /**
@@ -67,7 +66,7 @@ class Source
         $fields = [];
 
         foreach ($rows as $row) {
-            if (!is_array($row) || !isset($row['name']) || !is_scalar($row['name'])) {
+            if ('' === self::str($row, 'name')) {
                 continue;
             }
 
@@ -107,7 +106,7 @@ class Source
             ['clang' => $clangId],
         );
 
-        if ([] === $rows || !is_array($rows[0])) {
+        if ([] === $rows) {
             return [];
         }
 
@@ -117,7 +116,7 @@ class Source
         $values = [];
 
         foreach ($row as $name => $value) {
-            if (null === $value || !is_scalar($value)) {
+            if (null === $value) {
                 continue;
             }
 
@@ -144,7 +143,7 @@ class Source
         $ids = [];
 
         foreach ($rows as $row) {
-            if (is_array($row) && isset($row['clang']) && is_scalar($row['clang'])) {
+            if (isset($row['clang'])) {
                 $ids[] = (int) $row['clang'];
             }
         }

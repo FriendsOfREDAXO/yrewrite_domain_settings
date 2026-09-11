@@ -2,6 +2,9 @@
 
 namespace FriendsOfRedaxo\DomainSettings\Import;
 
+use function count;
+use function in_array;
+
 /**
  * One field definition as global_settings stores it.
  *

@@ -247,3 +247,43 @@
         init();
     }
 })();
+
+/**
+ * Fields that only apply to one choice of a select, on the import form.
+ *
+ * The markup carries data-domain-settings-visible-for="<value>" and ships
+ * visible, so without JavaScript the field stays reachable and the form still
+ * works - it is then simply ignored unless a new tab is what you picked.
+ */
+(function () {
+    'use strict';
+
+    function init() {
+        var select = document.getElementById('domain-settings-import-target');
+
+        if (!select) {
+            return;
+        }
+
+        var conditional = document.querySelectorAll('[data-domain-settings-visible-for]');
+
+        if (!conditional.length) {
+            return;
+        }
+
+        function sync() {
+            Array.prototype.forEach.call(conditional, function (element) {
+                element.hidden = select.value !== element.getAttribute('data-domain-settings-visible-for');
+            });
+        }
+
+        select.addEventListener('change', sync);
+        sync();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();

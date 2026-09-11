@@ -4,6 +4,11 @@ namespace FriendsOfRedaxo\DomainSettings\Import;
 
 use rex_i18n;
 
+use function in_array;
+
+use const JSON_UNESCAPED_SLASHES;
+use const JSON_UNESCAPED_UNICODE;
+
 /**
  * Translates global_settings field definitions and values into YForm's shape.
  *
@@ -50,14 +55,18 @@ class Mapper
      */
     public function convertValue(SourceField $field, string $value): ?string
     {
+        // A boolean is on or off, never unset: an empty value means the box
+        // was not ticked, and YForm stores that as 0 rather than as ''.
+        if ($field->isBoolean()) {
+            return $this->isTicked($value) ? '1' : '0';
+        }
+
         if ('' === $value) {
             return '';
         }
 
         return match ($field->typeId) {
-            SourceField::TYPE_CHECKBOX => $field->isBoolean()
-                ? ($this->isTicked($value) ? '1' : '0')
-                : $this->pipesToCommas($value),
+            SourceField::TYPE_CHECKBOX => $this->pipesToCommas($value),
             SourceField::TYPE_SELECT, SourceField::TYPE_RADIO => $this->pipesToCommas($value),
             SourceField::TYPE_DATE => $this->fromTimestamp($value, 'Y-m-d'),
             SourceField::TYPE_DATETIME => $this->fromTimestamp($value, 'Y-m-d H:i:s'),
