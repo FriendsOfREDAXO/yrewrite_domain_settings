@@ -145,10 +145,12 @@ if (rex::isBackend()) {
     });
 }
 
-// A way back from the YForm table manager. "Edit fields" leads out of this
-// addon, and YForm has no idea where the visitor came from - so the link is
-// offered on its field page whenever the table is one of ours. Through
-// getSections(), so it only appears for someone who may edit that tab.
+// Two things on YForm's field page: a way back into this addon, and the notice
+// that the guard below turned a request away.
+//
+// The way back, because "edit fields" leads out of this addon and YForm has no
+// idea where the visitor came from. Through getSections(), so it only appears
+// for someone who may edit that tab.
 if (rex::isBackend()) {
     rex_extension::register('PAGE_TITLE_SHOWN', static function (rex_extension_point $ep) {
         if ('yform/manager/table_field' !== rex_be_controller::getCurrentPage()) {
@@ -156,14 +158,22 @@ if (rex::isBackend()) {
         }
 
         $table = rex_request('table_name', 'string', '');
+        $subject = $ep->getSubject();
+        $out = is_string($subject) ? $subject : '';
 
-        if (!array_key_exists($table, Backend::getSections())) {
-            return null;
+        // Said out loud rather than swallowed: a button that silently does
+        // nothing reads as a broken backend, not as a protected table.
+        if (1 === rex_request('domain_settings_protected', 'int', 0)
+            && array_key_exists($table, Backend::getAllSections())
+        ) {
+            $out .= rex_view::warning(rex_i18n::msg('domain_settings_structure_protected'));
         }
 
-        $subject = $ep->getSubject();
+        if (!array_key_exists($table, Backend::getSections())) {
+            return '' === $out ? null : $out;
+        }
 
-        return (is_string($subject) ? $subject : '') . '<p><a class="btn btn-default" href="'
+        return $out . '<p><a class="btn btn-default" href="'
             . rex_url::backendPage('yrewrite_domain_settings/data', ['section' => Backend::sectionSlug($table)])
             . '"><i class="rex-icon fa-arrow-left"></i> '
             . rex_i18n::msg('domain_settings_back_to_values')
@@ -171,16 +181,46 @@ if (rex::isBackend()) {
     });
 }
 
-// YForm offers to turn every column without a field into one - including
-// domain_id and clang_id, which are deliberately plain columns: their values
-// decide which row is being written, so letting a form supply them would let a
-// crafted post write into another domain. Following that offer and later
-// deleting the field "with its column" would take the addon's own structure
-// with it, so the box is removed on our tables.
+// "Update table with field deletion" drops every column that has no field, id
+// aside (yform, lib/manager/table/api.php, generateTableAndFields() with
+// $delete_old). On these tables that is domain_id and clang_id - the columns
+// that decide which row is read and written - so one click would take every
+// stored value with it.
 //
-// Through the output rather than an extension point because YForm has none
-// here, and the heading is hardcoded there (lib/manager/manager.php). If that
-// text ever changes the box simply reappears - nothing breaks.
+// Stopped before YForm sees the request: getFieldPage() carries the action out
+// while building the page (lib/manager/manager.php), behind nothing but a CSRF
+// token, and that token is on every other link of the same page. Hiding the
+// button is therefore housekeeping, not protection - by the time an
+// OUTPUT_FILTER runs, the columns are gone. PAGE_CHECKED is the last point
+// that still runs before the page is included (core/backend.php).
+if (rex::isBackend()) {
+    rex_extension::register('PAGE_CHECKED', static function (rex_extension_point $ep): void {
+        if ('yform/manager/table_field' !== $ep->getSubject()
+            || 'updatetablewithdelete' !== rex_request('func', 'string', '')
+        ) {
+            return;
+        }
+
+        $table = rex_request('table_name', 'string', '');
+
+        if (!array_key_exists($table, Backend::getAllSections())) {
+            return;
+        }
+
+        // Back to the same table without the func, so a reload cannot repeat
+        // it. The page needs nothing else (yform, pages/manager.table_field.php).
+        rex_response::sendRedirect(rex_url::backendPage('yform/manager/table_field', [
+            'table_name' => $table,
+            'domain_settings_protected' => 1,
+        ]));
+    });
+}
+
+// The same two columns from the other side: YForm offers to turn every column
+// without a field into one. A form supplying domain_id or clang_id would let a
+// crafted post write into another domain, so the offer is taken off the page
+// on our tables. Cosmetic by nature - the guard above is what protects the
+// data - but it keeps the trap out of sight.
 if (rex::isBackend()) {
     rex_extension::register('OUTPUT_FILTER', static function (rex_extension_point $ep) {
         if ('yform/manager/table_field' !== rex_be_controller::getCurrentPage()) {
@@ -211,25 +251,22 @@ if (rex::isBackend()) {
 
         $before = $subject;
 
-        // The offer to turn domain_id and clang_id into fields.
-        $heading = 'Es gibt noch Felder in der Tabelle welche nicht zugewiesen sind.';
+        // Keyed to the links the box is made of rather than to its heading:
+        // that heading is a hardcoded German sentence in YForm
+        // (lib/manager/manager.php), so matching it would survive a
+        // translation but not a rewording. func=choosenadd carries
+        // type_real_field only here - the "add field" icon of the field list
+        // uses the same func without it.
+        $subject = preg_replace(
+            '#<section[^>]*class="[^"]*rex-page-section[^"]*"[^>]*>'
+            . '(?:(?!</section>).)*?func=choosenadd&(?:amp;)?type_real_field=.*?</section>#s',
+            '',
+            $subject,
+            1,
+        ) ?? $subject;
 
-        if (str_contains($subject, $heading)) {
-            $subject = preg_replace(
-                '#<section[^>]*class="[^"]*rex-page-section[^"]*"[^>]*>(?:(?!</section>).)*?'
-                . preg_quote($heading, '#')
-                . '.*?</section>#s',
-                '',
-                $subject,
-                1,
-            ) ?? $subject;
-        }
-
-        // And the button next to it: "update with field deletion" drops every
-        // column without a field except id (yform, table/api.php,
-        // generateTableAndFields with $delete_old). On these tables that is
-        // domain_id and clang_id - the row keys - so one click would take the
-        // stored values with them.
+        // And the button next to it, which is what the PAGE_CHECKED guard
+        // above turns away when someone reaches for the URL anyway.
         $subject = preg_replace(
             '#<a[^>]+func=updatetablewithdelete[^>]*>.*?</a>#s',
             '',

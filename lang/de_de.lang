@@ -22,6 +22,7 @@ domain_settings_domains = Domaineinstellungen: Domains
 domain_settings_domains_all = alle Domains
 domain_settings_section_fields = Felder
 domain_settings_back_to_values = Zurück zu Domaineinstellungen
+domain_settings_structure_protected = Diese Tabelle gehört zu den Domaineinstellungen. Die Spalten domain_id und clang_id bestimmen, welcher Datensatz gelesen und geschrieben wird - "Tabelle aktualisieren mit Feldlöschung" würde sie entfernen und alle gespeicherten Werte mitnehmen. Die Aktion wurde deshalb abgelehnt.
 domain_settings_edit_fields = Felder bearbeiten
 domain_settings_fallback_clang = Sprache
 domain_settings_fallback_title = Fallback
